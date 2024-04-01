@@ -1,16 +1,39 @@
 package main
 
 import (
-	"GinStart/Handler"
+	"GinStart/Repository"
+	"GinStart/Repository/Dao"
+	"GinStart/Service"
+	"GinStart/Web"
 	"github.com/gin-gonic/contrib/cors"
 	"github.com/gin-gonic/gin"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 	"strings"
 	"time"
 )
 
 func main() {
-	hdl := Handler.NewUserHandler()
+	db := InitDB()
+	server := InitServer()
+	//初始化
+	InitUserHdl(db, server)
+	server.Run(":8080")
+}
 
+func InitDB() *gorm.DB {
+	db, err := gorm.Open(mysql.Open("root:root@tcp(localhost:13316)/Gin"))
+	if err != nil {
+		panic(err)
+	}
+	err1 := Dao.InitTables(db)
+	if err1 != nil {
+		panic(err1)
+	}
+	return db
+}
+
+func InitServer() *gin.Engine {
 	c := gin.Default()
 	c.Use(cors.New(cors.Config{
 		//AllowAllOrigins: true,允许所有域名，比较危险
@@ -33,7 +56,13 @@ func main() {
 
 		MaxAge: 12 * time.Hour, //检测时间长度
 	}))
+	return c
+}
 
-	hdl.RegisterRoute(c)
-	c.Run(":8080")
+func InitUserHdl(db *gorm.DB, server *gin.Engine) {
+	ud := Dao.NewUserDao(db)
+	ur := Repository.NewUserRepository(ud)
+	us := Service.NewUserService(ur)
+	hdl := Handler.NewUserHandler(us)
+	hdl.RegisterRoute(server)
 }

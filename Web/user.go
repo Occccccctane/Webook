@@ -1,6 +1,8 @@
 package Handler
 
 import (
+	"GinStart/Domain"
+	"GinStart/Service"
 	regexp "github.com/dlclark/regexp2"
 	"github.com/gin-gonic/gin"
 	"net/http"
@@ -12,19 +14,6 @@ const (
 	passwordRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)[a-zA-Z\\d]{8,}$"
 )
 
-type UserHandler struct {
-	emailRexExp    *regexp.Regexp
-	passwordRexExp *regexp.Regexp
-}
-
-// NewUserHandler 正则预加载
-func NewUserHandler() *UserHandler {
-	return &UserHandler{
-		emailRexExp:    regexp.MustCompile(emailRegex, regexp.None),
-		passwordRexExp: regexp.MustCompile(passwordRegex, regexp.None),
-	}
-}
-
 func (h *UserHandler) RegisterRoute(server *gin.Engine) {
 
 	user := server.Group("/users")
@@ -32,6 +21,21 @@ func (h *UserHandler) RegisterRoute(server *gin.Engine) {
 	user.POST("/login", h.Login)
 	user.POST("/edit", h.Edit)
 	user.GET("/profile", h.Profile)
+}
+
+type UserHandler struct {
+	emailRexExp    *regexp.Regexp
+	passwordRexExp *regexp.Regexp
+	svc            *Service.UserService
+}
+
+// NewUserHandler 正则预加载
+func NewUserHandler(svc *Service.UserService) *UserHandler {
+	return &UserHandler{
+		emailRexExp:    regexp.MustCompile(emailRegex, regexp.None),
+		passwordRexExp: regexp.MustCompile(passwordRegex, regexp.None),
+		svc:            svc,
+	}
 }
 
 func (h *UserHandler) Signup(c *gin.Context) {
@@ -89,7 +93,17 @@ func (h *UserHandler) Signup(c *gin.Context) {
 		})
 		return
 	}
-
+	err = h.svc.Signup(c, Domain.User{
+		Email:    req.Email,
+		Password: req.Password,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code": "500",
+			"msg":  "注册失败",
+		})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"code": "200",
 	})
