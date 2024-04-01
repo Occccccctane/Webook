@@ -1,1 +1,1 @@
-create database ginstart;
+create database Gin;

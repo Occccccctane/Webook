@@ -11,7 +11,7 @@ import (
 // 正则常量
 const (
 	emailRegex    = "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$"
-	passwordRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)[a-zA-Z\\d]{8,}$"
+	passwordRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)[a-zA-Z\\d]{8,72}$"
 )
 
 func (h *UserHandler) RegisterRoute(server *gin.Engine) {
@@ -45,9 +45,10 @@ func (h *UserHandler) Signup(c *gin.Context) {
 		Password        string `json:"password"`
 		ConfirmPassword string `json:"confirmPassword"`
 	}
+
 	var req signUpReq
-	error := c.Bind(&req)
-	if error != nil {
+	err1 := c.Bind(&req)
+	if err1 != nil {
 		return
 	}
 
@@ -93,20 +94,31 @@ func (h *UserHandler) Signup(c *gin.Context) {
 		})
 		return
 	}
+
+	//service层逻辑调用
 	err = h.svc.Signup(c, Domain.User{
 		Email:    req.Email,
 		Password: req.Password,
 	})
-	if err != nil {
+	//错误处理
+	switch err {
+	case nil:
+		c.JSON(http.StatusOK, gin.H{
+			"code": "200",
+		})
+	case Service.EmailUniqueErr:
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code": "500",
+			"msg":  "邮箱已注册",
+		})
+	default:
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"code": "500",
 			"msg":  "注册失败",
 		})
-		return
+
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"code": "200",
-	})
+
 }
 
 func (h *UserHandler) Login(c *gin.Context) {
