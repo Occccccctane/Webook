@@ -8,7 +8,10 @@ import (
 	"time"
 )
 
-var EmailUniqueErr = errors.New("邮箱唯一错误")
+var (
+	EmailUniqueErr    = errors.New("邮箱唯一错误")
+	ErrRecordNotFound = gorm.ErrRecordNotFound
+)
 
 type UserDao struct {
 	db *gorm.DB
@@ -25,6 +28,7 @@ func (dao *UserDao) Insert(ctx context.Context, u User) error {
 
 	err := dao.db.WithContext(ctx).Create(&u).Error
 
+	//将错误类型断言为unique键错误，并给出特定的错误处理
 	if mysl, ok := err.(*mysql.MySQLError); ok {
 		const uniqueErrNum uint16 = 1062
 		if mysl.Number == uniqueErrNum {
@@ -32,6 +36,15 @@ func (dao *UserDao) Insert(ctx context.Context, u User) error {
 		}
 	}
 	return err
+}
+
+func (dao *UserDao) EmailSearch(context context.Context, email string) (User, error) {
+	var user User
+	err1 := dao.db.WithContext(context).Where("email=?", email).First(&user).Error
+	if err1 != nil {
+		return user, err1
+	}
+	return user, nil
 }
 
 type User struct {

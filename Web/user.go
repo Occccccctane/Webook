@@ -4,6 +4,7 @@ import (
 	"GinStart/Domain"
 	"GinStart/Service"
 	regexp "github.com/dlclark/regexp2"
+	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"net/http"
 )
@@ -122,6 +123,48 @@ func (h *UserHandler) Signup(c *gin.Context) {
 }
 
 func (h *UserHandler) Login(c *gin.Context) {
+	type logINReq struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	var req logINReq
+	err1 := c.Bind(&req)
+	if err1 != nil {
+		return
+	}
+
+	u, err2 := h.svc.Login(c, req.Email, req.Password)
+	switch err2 {
+	case nil:
+		sess := sessions.Default(c)
+		sess.Set("UserId", u.Id)
+		sess.Options(sessions.Options{
+			MaxAge:   900,
+			HttpOnly: true,
+		})
+		err := sess.Save()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"code": "500",
+				"msg":  "系统错误",
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"code": "200",
+		})
+	case Service.ErrInvalidUserOrPassword:
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code": "400",
+			"msg":  "账号或密码错误",
+		})
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code": "500",
+			"msg":  "系统错误",
+		})
+	}
 
 }
 
@@ -130,5 +173,7 @@ func (h *UserHandler) Edit(c *gin.Context) {
 }
 
 func (h *UserHandler) Profile(c *gin.Context) {
-
+	c.JSON(http.StatusOK, gin.H{
+		"code": "200",
+	})
 }

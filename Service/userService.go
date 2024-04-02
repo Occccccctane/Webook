@@ -4,10 +4,14 @@ import (
 	"GinStart/Domain"
 	"GinStart/Repository"
 	"context"
+	"errors"
 	"golang.org/x/crypto/bcrypt"
 )
 
-var EmailUniqueErr = Repository.EmailUniqueErr
+var (
+	EmailUniqueErr           = Repository.EmailUniqueErr
+	ErrInvalidUserOrPassword = errors.New("账号或密码错误")
+)
 
 type UserService struct {
 	repo *Repository.UserRepository
@@ -28,4 +32,19 @@ func (svc *UserService) Signup(ctx context.Context, u Domain.User) error {
 	//没报错就将密码加密为哈希，将哈希存入数据库中
 	u.Password = string(hash)
 	return svc.repo.Create(ctx, u)
+}
+
+func (svc *UserService) Login(context context.Context, email, password string) (Domain.User, error) {
+	user, err1 := svc.repo.FindByEmail(context, email)
+	if err1 == Repository.ErrUserNotFound {
+		return Domain.User{}, ErrInvalidUserOrPassword
+	}
+	if err1 != nil {
+		return Domain.User{}, err1
+	}
+	err2 := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+	if err2 != nil {
+		return Domain.User{}, ErrInvalidUserOrPassword
+	}
+	return user, nil
 }
