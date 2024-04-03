@@ -48,3 +48,32 @@ func (svc *UserService) Login(context context.Context, email, password string) (
 	}
 	return user, nil
 }
+
+func (svc *UserService) Edit(ctx context.Context, email, password, newPassword string) (Domain.User, error) {
+	//验证原始密码
+	user, err1 := svc.repo.FindByEmail(ctx, email)
+	if err1 == Repository.ErrUserNotFound {
+		return Domain.User{}, ErrInvalidUserOrPassword
+	}
+	if err1 != nil {
+		return Domain.User{}, err1
+	}
+	err2 := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+	if err2 != nil {
+		return Domain.User{}, ErrInvalidUserOrPassword
+	}
+
+	hash, err3 := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err3 != nil {
+		return Domain.User{}, err3
+	}
+
+	//修改信息
+	//没报错就将密码加密为哈希，将哈希存入数据库中
+	newPassword = string(hash)
+	newUser, err4 := svc.repo.Edit(ctx, email, newPassword)
+	if err4 != nil {
+		return Domain.User{}, err4
+	}
+	return newUser, nil
+}

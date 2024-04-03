@@ -36,6 +36,21 @@ func (repo *UserRepository) FindByEmail(ctx context.Context, email string) (Doma
 	return repo.toDomain(user), nil
 }
 
+func (repo *UserRepository) Edit(ctx context.Context, email, newPassword string) (Domain.User, error) {
+	//查找要修改的记录
+	user, err1 := repo.dao.EmailSearch(ctx, email)
+	if err1 != nil {
+		return Domain.User{}, err1
+	}
+
+	//更新信息
+	newUser, err2 := repo.dao.Update(user, newPassword)
+	if err2 != nil {
+		return Domain.User{}, err1
+	}
+	return repo.toDomain(newUser), err1
+}
+
 // 将dao的实体转换成domain的实体，避免跨层调用
 func (repo *UserRepository) toDomain(user Dao.User) Domain.User {
 	return Domain.User{

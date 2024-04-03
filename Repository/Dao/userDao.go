@@ -47,6 +47,21 @@ func (dao *UserDao) EmailSearch(context context.Context, email string) (User, er
 	return user, nil
 }
 
+func (dao *UserDao) Update(user User, password string) (User, error) {
+	//更新信息
+	var newUser User
+	newUser = user
+	newUser.Password = password
+	now := time.Now().UnixMilli()
+	newUser.Ctime = now
+
+	err1 := dao.db.Save(&newUser).Error
+	if err1 != nil {
+		return user, err1
+	}
+	return newUser, nil
+}
+
 type User struct {
 	Id       int64  `gorm:"primaryKey,autoIncrement"`
 	Email    string `gorm:"unique"`

@@ -169,7 +169,76 @@ func (h *UserHandler) Login(c *gin.Context) {
 }
 
 func (h *UserHandler) Edit(c *gin.Context) {
+	type editReq struct {
+		Email              string `json:"email"`
+		Password           string `json:"password"`
+		NewPassword        string `json:"newPassword"`
+		ConfirmNewPassword string `json:"confirmNewPassword"`
+	}
 
+	var req editReq
+	err1 := c.Bind(&req)
+	if err1 != nil {
+		return
+	}
+
+	//校验密码
+	isPasswordTrue, err := h.passwordRexExp.MatchString(req.NewPassword)
+	if err != nil {
+		c.JSON(http.StatusNotImplemented, gin.H{
+			"code": "501",
+			"msg":  "系统错误",
+		})
+		return
+	}
+	if !isPasswordTrue {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code": "400",
+			"msg":  "密码格式错误，应包括大小写字母和数字，并大于8位",
+		})
+		return
+	}
+
+	//校验两次密码
+	if req.ConfirmNewPassword != req.NewPassword {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code": "400",
+			"msg":  "两次密码不一致",
+		})
+		return
+	}
+
+	user, err2 := h.svc.Edit(c, req.Email, req.Password, req.NewPassword)
+	switch err2 {
+	case nil:
+		sess := sessions.Default(c)
+		sess.Set("UserId", user.Id)
+		sess.Options(sessions.Options{
+			MaxAge:   900,
+			HttpOnly: true,
+		})
+		err := sess.Save()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"code": "500",
+				"msg":  "系统错误",
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"code": "200",
+		})
+	case Service.ErrInvalidUserOrPassword:
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code": "400",
+			"msg":  "账号或密码错误",
+		})
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code": "500",
+			"msg":  "系统错误",
+		})
+	}
 }
 
 func (h *UserHandler) Profile(c *gin.Context) {
