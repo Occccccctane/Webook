@@ -200,6 +200,13 @@ func (h *UserHandler) Edit(c *gin.Context) {
 		})
 		return
 	}
+	if len(req.Nickname) > 15 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code": "400",
+			"msg":  "信息不能大于50位",
+		})
+		return
+	}
 	if len(req.Info) > 50 {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code": "400",
