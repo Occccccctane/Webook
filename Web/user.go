@@ -243,7 +243,35 @@ func (h *UserHandler) Edit(c *gin.Context) {
 }
 
 func (h *UserHandler) Profile(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"code": "200",
-	})
+	type profileReq struct {
+		Email    string
+		Password string
+	}
+
+	var req profileReq
+	req.Email = c.Request.Header.Get("email")
+	req.Password = c.Request.Header.Get("password")
+
+	u, err2 := h.svc.Login(c, req.Email, req.Password)
+	switch err2 {
+	case nil:
+		c.JSON(http.StatusOK, gin.H{
+			"code":     "200",
+			"Id":       u.Id,
+			"Email":    u.Email,
+			"Nickname": u.Nickname,
+			"Birthday": u.Birthday,
+			"Info":     u.Info,
+		})
+	case Service.ErrInvalidUserOrPassword:
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code": "400",
+			"msg":  "账号或密码错误",
+		})
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code": "500",
+			"msg":  "系统错误",
+		})
+	}
 }
