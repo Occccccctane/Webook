@@ -170,10 +170,12 @@ func (h *UserHandler) Login(c *gin.Context) {
 
 func (h *UserHandler) Edit(c *gin.Context) {
 	type editReq struct {
-		Email              string `json:"email"`
-		Password           string `json:"password"`
-		NewPassword        string `json:"newPassword"`
-		ConfirmNewPassword string `json:"confirmNewPassword"`
+		Email       string `json:"email"`
+		Password    string `json:"password"`
+		NewPassword string `json:"newPassword"`
+		Nickname    string `json:"nickname"`
+		Birthday    string `json:"birthday"`
+		Info        string `json:"info"`
 	}
 
 	var req editReq
@@ -198,26 +200,25 @@ func (h *UserHandler) Edit(c *gin.Context) {
 		})
 		return
 	}
-
-	//校验两次密码
-	if req.ConfirmNewPassword != req.NewPassword {
+	if len(req.Info) > 50 {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code": "400",
-			"msg":  "两次密码不一致",
+			"msg":  "信息不能大于50位",
 		})
 		return
 	}
 
-	user, err2 := h.svc.Edit(c, req.Email, req.Password, req.NewPassword)
+	err2 := h.svc.Edit(c, req.NewPassword, Domain.User{
+		Email:    req.Email,
+		Password: req.Password,
+		Nickname: req.Nickname,
+		Birthday: req.Birthday,
+		Info:     req.Info,
+	})
+
 	switch err2 {
 	case nil:
-		sess := sessions.Default(c)
-		sess.Set("UserId", user.Id)
-		sess.Options(sessions.Options{
-			MaxAge:   900,
-			HttpOnly: true,
-		})
-		err := sess.Save()
+
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"code": "500",

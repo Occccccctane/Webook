@@ -49,31 +49,34 @@ func (svc *UserService) Login(context context.Context, email, password string) (
 	return user, nil
 }
 
-func (svc *UserService) Edit(ctx context.Context, email, password, newPassword string) (Domain.User, error) {
+func (svc *UserService) Edit(ctx context.Context, newPassword string, u Domain.User) error {
 	//验证原始密码
-	user, err1 := svc.repo.FindByEmail(ctx, email)
+	user, err1 := svc.repo.FindByEmail(ctx, u.Email)
 	if err1 == Repository.ErrUserNotFound {
-		return Domain.User{}, ErrInvalidUserOrPassword
+		return ErrInvalidUserOrPassword
 	}
 	if err1 != nil {
-		return Domain.User{}, err1
+		return err1
 	}
-	err2 := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+	err2 := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(u.Password))
 	if err2 != nil {
-		return Domain.User{}, ErrInvalidUserOrPassword
+		return ErrInvalidUserOrPassword
 	}
-
+	//加密新密码
 	hash, err3 := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 	if err3 != nil {
-		return Domain.User{}, err3
+		return err3
 	}
 
 	//修改信息
-	//没报错就将密码加密为哈希，将哈希存入数据库中
-	newPassword = string(hash)
-	newUser, err4 := svc.repo.Edit(ctx, email, newPassword)
-	if err4 != nil {
-		return Domain.User{}, err4
+	//如果有新密码就保存新哈希，将哈希存入数据库中
+	if newPassword != u.Password {
+		u.Password = string(hash)
 	}
-	return newUser, nil
+
+	err4 := svc.repo.Edit(ctx, u)
+	if err4 != nil {
+		return err4
+	}
+	return nil
 }
