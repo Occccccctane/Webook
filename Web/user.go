@@ -4,9 +4,10 @@ import (
 	"GinStart/Domain"
 	"GinStart/Service"
 	regexp "github.com/dlclark/regexp2"
-	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"net/http"
+	"time"
 )
 
 // 正则常量
@@ -137,13 +138,31 @@ func (h *UserHandler) Login(c *gin.Context) {
 	u, err2 := h.svc.Login(c, req.Email, req.Password)
 	switch err2 {
 	case nil:
-		sess := sessions.Default(c)
-		sess.Set("UserId", u.Id)
-		sess.Options(sessions.Options{
-			MaxAge:   30, //15分钟
-			HttpOnly: true,
-		})
-		err := sess.Save()
+		//sess := sessions.Default(c)
+		//sess.Set("UserId", u.Id)
+		//sess.Options(sessions.Options{
+		//	MaxAge:   900, //15分钟
+		//	HttpOnly: true,
+		//})
+		//err := sess.Save()
+		//if err != nil {
+		//	c.JSON(http.StatusInternalServerError, gin.H{
+		//		"code": "500",
+		//		"msg":  "系统错误",
+		//	})
+		//	return
+		//}
+
+		//换成JWT处理
+		uc := UserClaims{
+			Uid: u.Id,
+			RegisteredClaims: jwt.RegisteredClaims{
+				//设置15分钟过期
+				ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 15)),
+			},
+		}
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, uc)
+		tokenStr, err := token.SignedString(JWTKey)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"code": "500",
@@ -151,6 +170,7 @@ func (h *UserHandler) Login(c *gin.Context) {
 			})
 			return
 		}
+		c.Header("x-jwt-token", tokenStr)
 		c.JSON(http.StatusOK, gin.H{
 			"code": "200",
 		})
@@ -250,6 +270,9 @@ func (h *UserHandler) Edit(c *gin.Context) {
 }
 
 func (h *UserHandler) Profile(c *gin.Context) {
+	//从上下文取出，断言为UserClaims类型
+	//us:=c.MustGet("user").(UserClaims)
+
 	type profileReq struct {
 		Email    string
 		Password string
@@ -281,4 +304,11 @@ func (h *UserHandler) Profile(c *gin.Context) {
 			"msg":  "系统错误",
 		})
 	}
+}
+
+var JWTKey = []byte("ppSik8fZfCugefcqWNeh54adKgtN1Fmp")
+
+type UserClaims struct {
+	jwt.RegisteredClaims
+	Uid int64
 }

@@ -38,7 +38,7 @@ func (b *LoginBuilder) CheckLogin() gin.HandlerFunc {
 		//1.刷新时间不为nil，即第一次登录
 		//2.上次刷新时间，断言不成功，如果刷新时间为nil也会断言不成功
 		//3.现在时间减上次时间大于设置的刷新时间
-		if uptime == nil || !ok || now.Sub(lastUpdateTime) > time.Second*30 {
+		if uptime == nil || !ok || now.Sub(lastUpdateTime) > time.Minute*10 {
 			sess.Set("update_time", now)
 			sess.Set("UserId", userId)
 			err := sess.Save()
