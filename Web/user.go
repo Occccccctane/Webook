@@ -4,7 +4,7 @@ import (
 	"GinStart/Domain"
 	"GinStart/Service"
 	regexp "github.com/dlclark/regexp2"
-	"github.com/gin-gonic/contrib/sessions"
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"net/http"
 )
@@ -140,7 +140,7 @@ func (h *UserHandler) Login(c *gin.Context) {
 		sess := sessions.Default(c)
 		sess.Set("UserId", u.Id)
 		sess.Options(sessions.Options{
-			MaxAge:   900,
+			MaxAge:   30, //15分钟
 			HttpOnly: true,
 		})
 		err := sess.Save()

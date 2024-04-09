@@ -6,8 +6,9 @@ import (
 	"GinStart/Repository/Dao"
 	"GinStart/Service"
 	"GinStart/Web"
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/redis"
 	"github.com/gin-gonic/contrib/cors"
-	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -42,7 +43,19 @@ func InitServer() *gin.Engine {
 	c := gin.Default()
 
 	login := &MiddleWare.LoginBuilder{}
-	store := sessions.NewCookieStore([]byte("secret"))
+	//使用Cookie存储
+	//store := cookie.NewStore([]byte("secret"))
+	//使用内存作为存储Session信息的载体
+	//store := memstore.NewStore([]byte("uT4WEEyz2oSIkzEVwSBwIpwMoHGZ70N2FNtXJFDfCsRVUFa0PKU53UfzCdwZs8I8"),
+	//	[]byte("VgNulil8EVFkEi7nWNozTqHr7bVwreh9Pn4CPvCPvjhpEDzLMVYKeCaXQePKnBxW"))
+	//使用redis存储
+	store, err := redis.NewStore(16, "tcp", "localhost:6379", "",
+		[]byte("ppSik8fZfCugefcqWNeh54adKgtN1Fmp"),
+		[]byte("zysHnwMiU2jPJ59NmrmBLQcZNT3FPysv"),
+	)
+	if err != nil {
+		panic(err)
+	}
 
 	c.Use(
 		cors.New(cors.Config{
