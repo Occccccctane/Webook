@@ -37,7 +37,7 @@ func (b *LoginJWTBuilder) CheckLogin() gin.HandlerFunc {
 
 		tokenStr := segs[1]
 		var uc Handler.UserClaims
-		token, err := jwt.ParseWithClaims(tokenStr, uc, func(token *jwt.Token) (interface{}, error) {
+		token, err := jwt.ParseWithClaims(tokenStr, &uc, func(token *jwt.Token) (interface{}, error) {
 			return Handler.JWTKey, nil
 		})
 
