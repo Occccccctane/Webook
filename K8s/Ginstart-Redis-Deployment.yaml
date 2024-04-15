@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ginstart-redis
+  labels:
+    app: ginstart-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ginstart-redis
+  template:
+    metadata:
+      name: ginstart-redis
+      labels:
+        app: ginstart-redis
+    spec:
+      containers:
+        - name: ginstart-redis
+          image: redis:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 6380
+      restartPolicy: Always
+      

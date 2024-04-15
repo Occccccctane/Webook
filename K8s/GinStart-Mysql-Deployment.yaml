@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ginstart-mysql
+  labels:
+    app: ginstart-mysql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ginstart-mysql
+  template:
+    metadata:
+      name: ginstart-mysql
+      labels:
+        app: ginstart-mysql
+    spec:
+      containers:
+        - name: ginstart-mysql
+          image: mysql:8.0
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: root
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3306
+#         意思将 MYSQL 的数据挂载到名为 mysql-storage 的文件夹下，路径是/var/lib/mysql
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              name: mysql-storage
+      restartPolicy: Always
+#      注册 mysql-storage 这个空间，声明 pvc
+#      pvc：persistentVolumeClaim
+      volumes:
+        - name: mysql-storage
+          persistentVolumeClaim:
+            claimName: ginstart-mysql-pvc

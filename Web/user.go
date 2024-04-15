@@ -155,7 +155,8 @@ func (h *UserHandler) Login(c *gin.Context) {
 
 		//换成JWT处理
 		uc := UserClaims{
-			Uid: u.Id,
+			Uid:       u.Id,
+			UserAgent: c.GetHeader("User-Agent"),
 			RegisteredClaims: jwt.RegisteredClaims{
 				//设置15分钟过期
 				ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 15)),
@@ -310,5 +311,6 @@ var JWTKey = []byte("ppSik8fZfCugefcqWNeh54adKgtN1Fmp")
 
 type UserClaims struct {
 	jwt.RegisteredClaims
-	Uid int64
+	Uid       int64
+	UserAgent string
 }

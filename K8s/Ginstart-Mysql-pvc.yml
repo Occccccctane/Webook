@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ginstart-mysql-pvc
+spec:
+#  用于绑定的名字
+  storageClassName: record
+  accessModes:
+#      只能有一个Pod读写
+    - ReadWriteOnce
+#  需要的资源
+  resources:
+    requests:
+#     申请1g的容量
+      storage: 1Gi
