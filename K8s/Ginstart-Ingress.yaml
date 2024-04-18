@@ -17,4 +17,4 @@ spec:
               service:
                 name: ginstart-service
                 port:
-                  number: 8081
+                  number: 88
