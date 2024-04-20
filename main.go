@@ -18,14 +18,17 @@ import (
 )
 
 func main() {
-	db := InitDB()
-	server := InitServer()
-	//初始化
-	InitUserHdl(db, server)
+
 	//server := gin.Default()
 	//server.GET("/hello", func(context *gin.Context) {
 	//	context.String(http.StatusOK, "登录成功")
 	//})
+
+	db := InitDB()
+	server := InitServer()
+	//初始化
+	InitUserHdl(db, server)
+
 	err := server.Run(":8080")
 	if err != nil {
 		panic(err)
@@ -59,7 +62,7 @@ func InitServer() *gin.Engine {
 	c.Use(
 		//跨域
 		cross.CrossDomainHandler(),
-		ratelimit.NewBuilder(redisClient, time.Second, 1).Build(),
+		ratelimit.NewBuilder(redisClient, time.Second, 100).Build(),
 	)
 	return c
 }

@@ -46,10 +46,10 @@ func (b *LoginJWTBuilder) CheckLogin() gin.HandlerFunc {
 			context.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
-		if uc.UserAgent != context.GetHeader("User-Agent") {
-			context.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
+		//if uc.UserAgent != context.GetHeader("User-Agent") {
+		//	context.AbortWithStatus(http.StatusUnauthorized)
+		//	return
+		//}
 		expireTime := uc.ExpiresAt
 		//如果剩余时间少于50秒，刷新
 		if expireTime.Sub(time.Now()) < time.Second*50 {

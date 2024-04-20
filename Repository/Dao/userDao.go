@@ -38,7 +38,7 @@ func (dao *UserDao) Insert(ctx context.Context, u User) error {
 	return err
 }
 
-func (dao *UserDao) EmailSearch(context context.Context, email string) (User, error) {
+func (dao *UserDao) FindByEmail(context context.Context, email string) (User, error) {
 	var user User
 	err1 := dao.db.WithContext(context).Where("email=?", email).First(&user).Error
 	if err1 != nil {
@@ -58,6 +58,15 @@ func (dao *UserDao) Update(user User) error {
 		return err1
 	}
 	return nil
+}
+
+func (dao *UserDao) FindByID(ctx context.Context, uid int64) (User, error) {
+	var user User
+	err1 := dao.db.WithContext(ctx).Where("ID=?", uid).First(&user).Error
+	if err1 != nil {
+		return user, err1
+	}
+	return user, nil
 }
 
 type User struct {
