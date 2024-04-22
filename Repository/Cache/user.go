@@ -16,6 +16,14 @@ type UserCache struct {
 	expiration time.Duration
 }
 
+func NewUserCache(cmd redis.Cmdable) *UserCache {
+	return &UserCache{
+		cmd: cmd,
+		// 过期时间，专属的可以写死，如果是写通用的缓存机制可以从外部传入
+		expiration: time.Minute * 15,
+	}
+}
+
 func (c *UserCache) Set(ctx context.Context, u Domain.User) error {
 	key := c.Key(u.Id)
 	// 用JSON进行序列化
@@ -48,11 +56,4 @@ func (c *UserCache) Key(uid int64) string {
 	//user/info/
 	//user_info_
 	return fmt.Sprintf("user:info:%d", uid)
-}
-func NewUserCache(cmd redis.Cmdable) *UserCache {
-	return &UserCache{
-		cmd: cmd,
-		// 过期时间，专属的可以写死，如果是写通用的缓存机制可以从外部传入
-		expiration: time.Minute * 15,
-	}
 }

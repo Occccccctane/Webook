@@ -4,6 +4,7 @@ import (
 	"GinStart/Config"
 	"GinStart/MiddleWare"
 	"GinStart/Repository"
+	"GinStart/Repository/Cache"
 	"GinStart/Repository/Dao"
 	"GinStart/Service"
 	"GinStart/Web"
@@ -69,7 +70,9 @@ func InitServer() *gin.Engine {
 
 func InitUserHdl(db *gorm.DB, server *gin.Engine) {
 	ud := Dao.NewUserDao(db)
-	ur := Repository.NewUserRepository(ud)
+
+	urd := Cache.NewUserCache()
+	ur := Repository.NewUserRepository(ud, urd)
 	us := Service.NewUserService(ur)
 	hdl := Handler.NewUserHandler(us)
 	hdl.RegisterRoute(server)
