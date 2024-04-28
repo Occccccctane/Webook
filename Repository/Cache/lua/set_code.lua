@@ -17,6 +17,7 @@ elseif ttl == -2 or ttl < 540 then
     redis.call("expire",key,600) -- 600秒的过期时间
     redis.call("set",cntKey,3)
     redis.call("expire",cntKey,600)
+    return 0
 else
     -- 发送太频繁
     return -1

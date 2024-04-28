@@ -5,25 +5,33 @@ import (
 	"GinStart/Repository"
 	"context"
 	"errors"
+	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 )
 
 var (
-	EmailUniqueErr           = Repository.EmailUniqueErr
+	ErrUserUnique            = Repository.ErrUserUnique
 	ErrInvalidUserOrPassword = errors.New("账号或密码错误")
 )
 
-type UserService struct {
-	repo *Repository.UserRepository
+type UserService interface {
+	Signup(ctx context.Context, u Domain.User) error
+	Login(context context.Context, email, password string) (Domain.User, error)
+	Edit(ctx context.Context, newPassword string, u Domain.User) error
+	FindOrCreate(c *gin.Context, phone string) (Domain.User, error)
 }
 
-func NewUserService(repo *Repository.UserRepository) *UserService {
-	return &UserService{
+type userService struct {
+	repo Repository.UserRepository
+}
+
+func NewUserService(repo Repository.UserRepository) UserService {
+	return &userService{
 		repo: repo,
 	}
 }
 
-func (svc *UserService) Signup(ctx context.Context, u Domain.User) error {
+func (svc *userService) Signup(ctx context.Context, u Domain.User) error {
 	hash, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
@@ -34,7 +42,7 @@ func (svc *UserService) Signup(ctx context.Context, u Domain.User) error {
 	return svc.repo.Create(ctx, u)
 }
 
-func (svc *UserService) Login(context context.Context, email, password string) (Domain.User, error) {
+func (svc *userService) Login(context context.Context, email, password string) (Domain.User, error) {
 	user, err1 := svc.repo.FindByEmail(context, email)
 	if err1 == Repository.ErrUserNotFound {
 		return Domain.User{}, ErrInvalidUserOrPassword
@@ -49,7 +57,7 @@ func (svc *UserService) Login(context context.Context, email, password string) (
 	return user, nil
 }
 
-func (svc *UserService) Edit(ctx context.Context, newPassword string, u Domain.User) error {
+func (svc *userService) Edit(ctx context.Context, newPassword string, u Domain.User) error {
 	//验证原始密码
 	user, err1 := svc.repo.FindByEmail(ctx, u.Email)
 	if err1 == Repository.ErrUserNotFound {
@@ -79,4 +87,23 @@ func (svc *UserService) Edit(ctx context.Context, newPassword string, u Domain.U
 		return err4
 	}
 	return nil
+}
+
+func (svc *userService) FindOrCreate(c *gin.Context, phone string) (Domain.User, error) {
+	//先找一下，我们认为，大部分用户是已经存在的
+	u, err := svc.repo.FindByPhone(c, phone)
+	if err != Repository.ErrUserNotFound {
+		return u, err
+	}
+	err = svc.repo.Create(c, Domain.User{
+		Phone: phone,
+	})
+	//有err但不是唯一索引冲突
+	//系统错误
+	if err != nil && err != Repository.ErrUserUnique {
+		return Domain.User{}, err
+	}
+	//要么没错误，要么唯一索引限制即用户存在
+	//可能有主从延迟，理论上讲强行走主库
+	return svc.repo.FindByPhone(c, phone)
 }

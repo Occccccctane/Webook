@@ -14,6 +14,9 @@ import (
 const (
 	emailRegex    = "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$"
 	passwordRegex = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)[a-zA-Z\\d]{8,72}$"
+	phoneRegex    = "^1[3-9]\\d{9}$"
+
+	bizLogin = "login"
 )
 
 func (h *UserHandler) RegisterRoute(server *gin.Engine) {
@@ -23,20 +26,28 @@ func (h *UserHandler) RegisterRoute(server *gin.Engine) {
 	user.POST("/login", h.Login)
 	user.POST("/edit", h.Edit)
 	user.GET("/profile", h.Profile)
+
+	//	验证码相关
+	user.POST("/login_sms/code/send", h.LoginSMSCode)
+	user.POST("/login_sms", h.LoginSMS)
 }
 
 type UserHandler struct {
 	emailRexExp    *regexp.Regexp
 	passwordRexExp *regexp.Regexp
-	svc            *Service.UserService
+	phoneRexExp    *regexp.Regexp
+	svc            Service.UserService
+	codeSvc        Service.CodeService
 }
 
 // NewUserHandler 正则预加载
-func NewUserHandler(svc *Service.UserService) *UserHandler {
+func NewUserHandler(svc Service.UserService, codeSvc Service.CodeService) *UserHandler {
 	return &UserHandler{
 		emailRexExp:    regexp.MustCompile(emailRegex, regexp.None),
 		passwordRexExp: regexp.MustCompile(passwordRegex, regexp.None),
+		phoneRexExp:    regexp.MustCompile(phoneRegex, regexp.None),
 		svc:            svc,
+		codeSvc:        codeSvc,
 	}
 }
 
@@ -108,7 +119,7 @@ func (h *UserHandler) Signup(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"code": "200",
 		})
-	case Service.EmailUniqueErr:
+	case Service.ErrUserUnique:
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"code": "500",
 			"msg":  "邮箱已注册",
@@ -154,24 +165,7 @@ func (h *UserHandler) Login(c *gin.Context) {
 		//}
 
 		//换成JWT处理
-		uc := UserClaims{
-			Uid:       u.Id,
-			UserAgent: c.GetHeader("User-Agent"),
-			RegisteredClaims: jwt.RegisteredClaims{
-				//设置15分钟过期
-				ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 15)),
-			},
-		}
-		token := jwt.NewWithClaims(jwt.SigningMethodHS256, uc)
-		tokenStr, err := token.SignedString(JWTKey)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"code": "500",
-				"msg":  "系统错误",
-			})
-			return
-		}
-		c.Header("x-jwt-token", tokenStr)
+		h.SetJWTToken(c, u.Id)
 		c.JSON(http.StatusOK, gin.H{
 			"code": "200",
 		})
@@ -286,6 +280,7 @@ func (h *UserHandler) Profile(c *gin.Context) {
 	u, err2 := h.svc.Login(c, req.Email, req.Password)
 	switch err2 {
 	case nil:
+
 		c.JSON(http.StatusOK, gin.H{
 			"code":     "200",
 			"Id":       u.Id,
@@ -305,6 +300,103 @@ func (h *UserHandler) Profile(c *gin.Context) {
 			"msg":  "系统错误",
 		})
 	}
+}
+
+func (h *UserHandler) LoginSMS(c *gin.Context) {
+	type req struct {
+		Phone string `json:"phone"`
+		Code  string `json:"code"`
+	}
+	var Req req
+	err := c.Bind(&Req)
+	if err != nil {
+		c.JSON(http.StatusOK, Result{
+			Code: "500",
+			Msg:  "请求失败",
+		})
+		return
+	}
+	ok, err1 := h.codeSvc.Verify(c, bizLogin, Req.Phone, Req.Code)
+	if err1 != nil {
+		c.JSON(http.StatusOK, Result{
+			Code: "500",
+			Msg:  "系统异常",
+		})
+	}
+	if !ok {
+		c.JSON(http.StatusOK, Result{Code: "400", Msg: "验证码不正确"})
+		return
+	}
+	u, err2 := h.svc.FindOrCreate(c, Req.Phone)
+	if err2 != nil {
+		c.JSON(http.StatusOK, Result{
+			Code: "500",
+			Msg:  "查找创建失败",
+		})
+		return
+	}
+	h.SetJWTToken(c, u.Id)
+	c.JSON(http.StatusOK, gin.H{
+		"code": "200",
+	})
+}
+
+func (h *UserHandler) LoginSMSCode(c *gin.Context) {
+	type req struct {
+		Phone string `json:"phone"`
+	}
+	var Req req
+	err := c.Bind(&Req)
+	if err != nil {
+		c.JSON(http.StatusOK, Result{
+			Code: "500",
+			Msg:  "请求失败",
+		})
+		return
+	}
+	isPhoneTrue, err := h.phoneRexExp.MatchString(Req.Phone)
+	if err != nil {
+		c.JSON(http.StatusOK, Result{Code: "501", Msg: "系统错误"})
+		return
+	}
+	if !isPhoneTrue {
+		c.JSON(http.StatusOK, Result{Code: "400", Msg: "电话格式错误"})
+		return
+	}
+
+	err1 := h.codeSvc.Send(c, bizLogin, Req.Phone)
+	switch err1 {
+	case nil:
+		c.JSON(http.StatusOK, Result{
+			Msg: "发送成功",
+		})
+	case Service.ErrCodeSendTooMany:
+		c.JSON(http.StatusOK, Result{Code: "400", Msg: "短信发送太频繁"})
+	default:
+		c.JSON(http.StatusOK, Result{Code: "501", Msg: "系统错误"})
+	}
+}
+
+func (h *UserHandler) SetJWTToken(c *gin.Context, uid int64) {
+	uc := UserClaims{
+		Uid:       uid,
+		UserAgent: c.GetHeader("User-Agent"),
+		RegisteredClaims: jwt.RegisteredClaims{
+			//设置15分钟过期
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 15)),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, uc)
+	tokenStr, err := token.SignedString(JWTKey)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code": "500",
+			"msg":  "系统错误",
+		})
+		return
+	}
+	c.Header("x-jwt-token", tokenStr)
+
 }
 
 var JWTKey = []byte("ppSik8fZfCugefcqWNeh54adKgtN1Fmp")

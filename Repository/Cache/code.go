@@ -8,10 +8,6 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-type CodeCache struct {
-	cmd redis.Cmdable
-}
-
 var (
 	//go:embed lua/set_code.lua
 	luaSetCode string
@@ -22,13 +18,21 @@ var (
 	ErrVerifySendToMany = errors.New("验证太频繁")
 )
 
-func NewCodeCache(cmd redis.Cmdable) *CodeCache {
-	return &CodeCache{
+type CodeCache interface {
+	Set(ctx context.Context, biz, phone, code string) error
+	Verify(ctx context.Context, biz, phone, code string) (bool, error)
+}
+type RedisCodeCache struct {
+	cmd redis.Cmdable
+}
+
+func NewCodeCache(cmd redis.Cmdable) CodeCache {
+	return &RedisCodeCache{
 		cmd: cmd,
 	}
 }
 
-func (c *CodeCache) Set(ctx context.Context, biz, phone, code string) error {
+func (c *RedisCodeCache) Set(ctx context.Context, biz, phone, code string) error {
 	res, err := c.cmd.Eval(ctx, luaSetCode, []string{c.Key(biz, phone)}, code).Int()
 	if err != nil {
 		//调用Redis出问题
@@ -44,7 +48,7 @@ func (c *CodeCache) Set(ctx context.Context, biz, phone, code string) error {
 	}
 }
 
-func (c *CodeCache) Verify(ctx context.Context, biz, phone, code string) (bool, error) {
+func (c *RedisCodeCache) Verify(ctx context.Context, biz, phone, code string) (bool, error) {
 	res, err := c.cmd.Eval(ctx, luaVerifyCode, []string{c.Key(biz, phone)}, code).Int()
 	if err != nil {
 		//调用Redis出问题
@@ -60,6 +64,6 @@ func (c *CodeCache) Verify(ctx context.Context, biz, phone, code string) (bool, 
 	}
 }
 
-func (c *CodeCache) Key(biz, phone string) string {
+func (c *RedisCodeCache) Key(biz, phone string) string {
 	return fmt.Sprintf("phone_code:%s:%s", biz, phone)
 }

@@ -11,20 +11,25 @@ import (
 
 var ErrKeyNotExist = redis.Nil
 
-type UserCache struct {
+type UserCache interface {
+	Set(ctx context.Context, u Domain.User) error
+	Get(ctx context.Context, uid int64) (Domain.User, error)
+}
+
+type RedisUserCache struct {
 	cmd        redis.Cmdable
 	expiration time.Duration
 }
 
-func NewUserCache(cmd redis.Cmdable) *UserCache {
-	return &UserCache{
+func NewUserCache(cmd redis.Cmdable) UserCache {
+	return &RedisUserCache{
 		cmd: cmd,
 		// 过期时间，专属的可以写死，如果是写通用的缓存机制可以从外部传入
 		expiration: time.Minute * 15,
 	}
 }
 
-func (c *UserCache) Set(ctx context.Context, u Domain.User) error {
+func (c *RedisUserCache) Set(ctx context.Context, u Domain.User) error {
 	key := c.Key(u.Id)
 	// 用JSON进行序列化
 	data, err := json.Marshal(u)
@@ -36,7 +41,7 @@ func (c *UserCache) Set(ctx context.Context, u Domain.User) error {
 
 }
 
-func (c *UserCache) Get(ctx context.Context, uid int64) (Domain.User, error) {
+func (c *RedisUserCache) Get(ctx context.Context, uid int64) (Domain.User, error) {
 	key := c.Key(uid)
 	//Redis中数据用JSON来序列化
 	data, err := c.cmd.Get(ctx, key).Result()
@@ -49,7 +54,7 @@ func (c *UserCache) Get(ctx context.Context, uid int64) (Domain.User, error) {
 }
 
 // Key 格式化成为字符串
-func (c *UserCache) Key(uid int64) string {
+func (c *RedisUserCache) Key(uid int64) string {
 	//格式没有强制要求,为了和其他的业务隔离开
 	//user-info-
 	//user.info.

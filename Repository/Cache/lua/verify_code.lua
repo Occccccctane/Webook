@@ -15,7 +15,7 @@ if cnt == nil or cnt <= 0 then
 end
 
 if code == expectedCode then
-    redis.call("set",cntKey,0)
+    redis.call("set",cntKey,-1)
     return 0
 else
     redis.call("decr",cntKey)

@@ -5,35 +5,41 @@ import (
 	"GinStart/Repository/Cache"
 	"GinStart/Repository/Dao"
 	"context"
+	"database/sql"
 	"log"
+	"time"
 )
 
 var (
 	ErrUserNotFound = Dao.ErrRecordNotFound
-	EmailUniqueErr  = Dao.EmailUniqueErr
+	ErrUserUnique   = Dao.EmailUniqueErr
 )
 
-type UserRepository struct {
-	dao   *Dao.UserDao
-	cache *Cache.UserCache
+type UserRepository interface {
+	Create(ctx context.Context, u Domain.User) error
+	FindByEmail(ctx context.Context, email string) (Domain.User, error)
+	FindByID(ctx context.Context, uid int64) (Domain.User, error)
+	FindByPhone(ctx context.Context, phone string) (Domain.User, error)
+	Edit(ctx context.Context, u Domain.User) error
+}
+type CacheUserRepository struct {
+	dao   Dao.UserDao
+	cache Cache.UserCache
 }
 
-// NewUserRepository 类似构造函数，将数据暴露出来
-func NewUserRepository(dao *Dao.UserDao, cache *Cache.UserCache) *UserRepository {
-	return &UserRepository{
+// NewCacheUserRepository 类似构造函数，将数据暴露出来
+func NewCacheUserRepository(dao Dao.UserDao, cache Cache.UserCache) UserRepository {
+	return &CacheUserRepository{
 		dao:   dao,
 		cache: cache,
 	}
 }
 
-func (repo *UserRepository) Create(ctx context.Context, u Domain.User) error {
-	return repo.dao.Insert(ctx, Dao.User{
-		Email:    u.Email,
-		Password: u.Password,
-	})
+func (repo *CacheUserRepository) Create(ctx context.Context, u Domain.User) error {
+	return repo.dao.Insert(ctx, repo.toEntity(u))
 }
 
-func (repo *UserRepository) FindByEmail(ctx context.Context, email string) (Domain.User, error) {
+func (repo *CacheUserRepository) FindByEmail(ctx context.Context, email string) (Domain.User, error) {
 	user, err1 := repo.dao.FindByEmail(ctx, email)
 	if err1 != nil {
 		return Domain.User{}, err1
@@ -41,10 +47,10 @@ func (repo *UserRepository) FindByEmail(ctx context.Context, email string) (Doma
 	return repo.toDomain(user), nil
 }
 
-func (repo *UserRepository) FindByID(ctx context.Context, uid int64) (Domain.User, error) {
+func (repo *CacheUserRepository) FindByID(ctx context.Context, uid int64) (Domain.User, error) {
 	// 从缓存中读
 	u, err := repo.cache.Get(ctx, uid)
-	if err != nil {
+	if err == nil {
 		return u, err
 	}
 	// 缓存中没有，从数据库中读
@@ -63,7 +69,7 @@ func (repo *UserRepository) FindByID(ctx context.Context, uid int64) (Domain.Use
 }
 
 // 避免缓存击穿的写法
-func (repo *UserRepository) FindByIDV1(ctx context.Context, uid int64) (Domain.User, error) {
+func (repo *CacheUserRepository) FindByIDV1(ctx context.Context, uid int64) (Domain.User, error) {
 	// 从缓存中读
 	u, err := repo.cache.Get(ctx, uid)
 	switch err {
@@ -89,26 +95,27 @@ func (repo *UserRepository) FindByIDV1(ctx context.Context, uid int64) (Domain.U
 		return Domain.User{}, err
 
 	}
-
 }
-func (repo *UserRepository) Edit(ctx context.Context, u Domain.User) error {
+
+func (repo *CacheUserRepository) FindByPhone(ctx context.Context, phone string) (Domain.User, error) {
+	u, err := repo.dao.FindByPhone(ctx, phone)
+	if err != nil {
+		return Domain.User{}, err
+	}
+	return repo.toDomain(u), nil
+}
+
+func (repo *CacheUserRepository) Edit(ctx context.Context, u Domain.User) error {
 	//查找要修改的记录
 	user, err1 := repo.dao.FindByID(ctx, u.Id)
 	if err1 != nil {
 		return err1
 	}
+	u1 := repo.toEntity(u)
+	u1.Ctime = user.Ctime
 
 	//更新信息
-	err2 := repo.dao.Update(Dao.User{
-		Id:       user.Id,
-		Email:    u.Email,
-		Password: u.Password,
-		Nickname: u.Nickname,
-		Birthday: u.Birthday,
-		Info:     u.Info,
-		Ctime:    user.Ctime,
-		Utime:    0,
-	})
+	err2 := repo.dao.Update(u1)
 	if err2 != nil {
 		return err2
 	}
@@ -116,13 +123,33 @@ func (repo *UserRepository) Edit(ctx context.Context, u Domain.User) error {
 }
 
 // 将dao的实体转换成domain的实体，避免跨层调用
-func (repo *UserRepository) toDomain(user Dao.User) Domain.User {
+func (repo *CacheUserRepository) toDomain(user Dao.User) Domain.User {
 	return Domain.User{
 		Id:       user.Id,
-		Email:    user.Email,
+		Email:    user.Email.String,
 		Password: user.Password,
 		Nickname: user.Nickname,
 		Birthday: user.Birthday,
 		Info:     user.Info,
+		Phone:    user.Phone.String,
+	}
+}
+
+func (repo *CacheUserRepository) toEntity(u Domain.User) Dao.User {
+	return Dao.User{
+		Id: u.Id,
+		Email: sql.NullString{
+			String: u.Email,
+			Valid:  u.Email != "",
+		},
+		Password: u.Password,
+		Nickname: u.Nickname,
+		Birthday: u.Birthday,
+		Info:     u.Info,
+		Phone: sql.NullString{
+			String: u.Phone,
+			Valid:  u.Phone != "",
+		},
+		Utime: time.Now().UnixMilli(),
 	}
 }

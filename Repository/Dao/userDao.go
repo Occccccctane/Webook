@@ -2,6 +2,7 @@ package Dao
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
@@ -13,15 +14,23 @@ var (
 	ErrRecordNotFound = gorm.ErrRecordNotFound
 )
 
-type UserDao struct {
+type UserDao interface {
+	Insert(ctx context.Context, u User) error
+	FindByEmail(context context.Context, email string) (User, error)
+	Update(user User) error
+	FindByID(ctx context.Context, uid int64) (User, error)
+	FindByPhone(ctx context.Context, phone string) (User, error)
+}
+
+type GormUserDao struct {
 	db *gorm.DB
 }
 
-func NewUserDao(db *gorm.DB) *UserDao {
-	return &UserDao{db: db}
+func NewUserDao(db *gorm.DB) UserDao {
+	return &GormUserDao{db: db}
 }
 
-func (dao *UserDao) Insert(ctx context.Context, u User) error {
+func (dao *GormUserDao) Insert(ctx context.Context, u User) error {
 	now := time.Now().UnixMilli()
 	u.Ctime = now
 	u.Utime = now
@@ -38,7 +47,7 @@ func (dao *UserDao) Insert(ctx context.Context, u User) error {
 	return err
 }
 
-func (dao *UserDao) FindByEmail(context context.Context, email string) (User, error) {
+func (dao *GormUserDao) FindByEmail(context context.Context, email string) (User, error) {
 	var user User
 	err1 := dao.db.WithContext(context).Where("email=?", email).First(&user).Error
 	if err1 != nil {
@@ -47,7 +56,7 @@ func (dao *UserDao) FindByEmail(context context.Context, email string) (User, er
 	return user, nil
 }
 
-func (dao *UserDao) Update(user User) error {
+func (dao *GormUserDao) Update(user User) error {
 	//更新信息
 
 	now := time.Now().UnixMilli()
@@ -60,7 +69,7 @@ func (dao *UserDao) Update(user User) error {
 	return nil
 }
 
-func (dao *UserDao) FindByID(ctx context.Context, uid int64) (User, error) {
+func (dao *GormUserDao) FindByID(ctx context.Context, uid int64) (User, error) {
 	var user User
 	err1 := dao.db.WithContext(ctx).Where("ID=?", uid).First(&user).Error
 	if err1 != nil {
@@ -69,13 +78,23 @@ func (dao *UserDao) FindByID(ctx context.Context, uid int64) (User, error) {
 	return user, nil
 }
 
+func (dao *GormUserDao) FindByPhone(ctx context.Context, phone string) (User, error) {
+	var user User
+	err1 := dao.db.WithContext(ctx).Where("phone=?", phone).First(&user).Error
+	if err1 != nil {
+		return user, err1
+	}
+	return user, nil
+}
+
 type User struct {
-	Id       int64  `gorm:"primaryKey,autoIncrement"`
-	Email    string `gorm:"unique"`
+	Id       int64          `gorm:"primaryKey,autoIncrement"`
+	Email    sql.NullString `gorm:"unique"`
 	Password string
 	Nickname string
 	Birthday string
 	Info     string
+	Phone    sql.NullString `gorm:"unique"`
 
 	//处理时区，统一用UTC 0时区的毫秒数
 	Ctime int64

@@ -16,7 +16,10 @@ type LoginJWTBuilder struct {
 func (b *LoginJWTBuilder) CheckLogin() gin.HandlerFunc {
 	return func(context *gin.Context) {
 		path := context.Request.URL.Path
-		if path == "/users/signup" || path == "/users/login" {
+		if path == "/users/signup" ||
+			path == "/users/login" ||
+			path == "/users/login_sms/code/send" ||
+			path == "/users/login_sms" {
 			return
 		}
 
