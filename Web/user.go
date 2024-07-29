@@ -311,7 +311,7 @@ func (h *UserHandler) LoginSMS(c *gin.Context) {
 	err := c.Bind(&Req)
 	if err != nil {
 		c.JSON(http.StatusOK, Result{
-			Code: "500",
+			Code: 500,
 			Msg:  "请求失败",
 		})
 		return
@@ -319,18 +319,18 @@ func (h *UserHandler) LoginSMS(c *gin.Context) {
 	ok, err1 := h.codeSvc.Verify(c, bizLogin, Req.Phone, Req.Code)
 	if err1 != nil {
 		c.JSON(http.StatusOK, Result{
-			Code: "500",
+			Code: 500,
 			Msg:  "系统异常",
 		})
 	}
 	if !ok {
-		c.JSON(http.StatusOK, Result{Code: "400", Msg: "验证码不正确"})
+		c.JSON(http.StatusOK, Result{Code: 400, Msg: "验证码不正确"})
 		return
 	}
 	u, err2 := h.svc.FindOrCreate(c, Req.Phone)
 	if err2 != nil {
 		c.JSON(http.StatusOK, Result{
-			Code: "500",
+			Code: 500,
 			Msg:  "查找创建失败",
 		})
 		return
@@ -349,18 +349,18 @@ func (h *UserHandler) LoginSMSCode(c *gin.Context) {
 	err := c.Bind(&Req)
 	if err != nil {
 		c.JSON(http.StatusOK, Result{
-			Code: "500",
+			Code: 500,
 			Msg:  "请求失败",
 		})
 		return
 	}
 	isPhoneTrue, err := h.phoneRexExp.MatchString(Req.Phone)
 	if err != nil {
-		c.JSON(http.StatusOK, Result{Code: "501", Msg: "系统错误"})
+		c.JSON(http.StatusOK, Result{Code: 501, Msg: "系统错误"})
 		return
 	}
 	if !isPhoneTrue {
-		c.JSON(http.StatusOK, Result{Code: "400", Msg: "电话格式错误"})
+		c.JSON(http.StatusOK, Result{Code: 400, Msg: "电话格式错误"})
 		return
 	}
 
@@ -371,9 +371,9 @@ func (h *UserHandler) LoginSMSCode(c *gin.Context) {
 			Msg: "发送成功",
 		})
 	case Service.ErrCodeSendTooMany:
-		c.JSON(http.StatusOK, Result{Code: "400", Msg: "短信发送太频繁"})
+		c.JSON(http.StatusOK, Result{Code: 400, Msg: "短信发送太频繁"})
 	default:
-		c.JSON(http.StatusOK, Result{Code: "501", Msg: "系统错误"})
+		c.JSON(http.StatusOK, Result{Code: 501, Msg: "系统错误"})
 	}
 }
 

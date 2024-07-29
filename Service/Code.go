@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	ErrCodeSendTooMany = Repository.ErrVerifySendToMany
+	ErrCodeSendTooMany = Repository.ErrCodeSendToMany
 )
 
 type CodeService interface {

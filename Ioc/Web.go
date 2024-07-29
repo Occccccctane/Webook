@@ -3,6 +3,7 @@ package Ioc
 import (
 	"GinStart/MiddleWare"
 	Handler "GinStart/Web"
+	"GinStart/pkg/limiter"
 	"GinStart/pkg/middleware/ratelimit"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
@@ -21,7 +22,7 @@ func InitMiddleWare(client redis.Cmdable) []gin.HandlerFunc {
 		//跨域
 		(&MiddleWare.CrossDomain{}).CrossDomainHandler(),
 		//限流
-		ratelimit.NewBuilder(client, time.Second, 100).Build(),
+		ratelimit.NewBuilder(limiter.NewRedisSlideWindowsLimiter(client, time.Second, 1000)).Build(),
 		//登录校验
 		(&MiddleWare.LoginJWTBuilder{}).CheckLogin(),
 	}

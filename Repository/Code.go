@@ -5,7 +5,10 @@ import (
 	"context"
 )
 
-var ErrVerifySendToMany = Cache.ErrVerifySendToMany
+var (
+	ErrVerifySendToMany = Cache.ErrVerifySendToMany
+	ErrCodeSendToMany   = Cache.ErrCodeSendToMany
+)
 
 type CodeRepository interface {
 	Set(ctx context.Context, biz, phone, code string) error
