@@ -28,8 +28,10 @@ func InitWireServer() *gin.Engine {
 		Ioc.InitSMSService,
 		Service.NewCodeService,
 		Service.NewUserService,
+		Ioc.InitWechatService,
 		//Web管理
 		Handler.NewUserHandler,
+		Handler.NewOAuth2WechatHandler,
 		//引擎，中间件
 		Ioc.InitMiddleWare,
 		Ioc.InitWebServer,

@@ -21,7 +21,7 @@ func (r CrossDomain) CrossDomainHandler() gin.HandlerFunc {
 			// 允许的请求头,并希望在前端请求时把token从Authorization带回来
 			AllowedHeaders: []string{"content-type", "Authorization"},
 
-			ExposedHeaders: []string{"x-jwt-token"}, //允许前端访问后端响应头部,让前端能看到这个头部
+			ExposedHeaders: []string{"x-jwt-token", "x-refresh-token"}, //允许前端访问后端响应头部,让前端能看到这个头部
 			//AllowedMethods: []string{"POST"}, 允许的请求方法，最好不配置
 
 			//允许字符串的检查方法，如果传入的字符串包含相关的字段则放行

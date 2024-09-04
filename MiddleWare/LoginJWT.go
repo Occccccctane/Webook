@@ -19,7 +19,9 @@ func (b *LoginJWTBuilder) CheckLogin() gin.HandlerFunc {
 		if path == "/users/signup" ||
 			path == "/users/login" ||
 			path == "/users/login_sms/code/send" ||
-			path == "/users/login_sms" {
+			path == "/users/login_sms" ||
+			path == "/oauth2/wechat/authurl" ||
+			path == "/oauth2/wechat/callback" {
 			return
 		}
 

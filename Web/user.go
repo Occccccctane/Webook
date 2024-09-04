@@ -5,9 +5,7 @@ import (
 	"GinStart/Service"
 	regexp "github.com/dlclark/regexp2"
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 	"net/http"
-	"time"
 )
 
 // 正则常量
@@ -33,6 +31,7 @@ func (h *UserHandler) RegisterRoute(server *gin.Engine) {
 }
 
 type UserHandler struct {
+	JwtHandler
 	emailRexExp    *regexp.Regexp
 	passwordRexExp *regexp.Regexp
 	phoneRexExp    *regexp.Regexp
@@ -240,14 +239,6 @@ func (h *UserHandler) Edit(c *gin.Context) {
 
 	switch err2 {
 	case nil:
-
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"code": "500",
-				"msg":  "系统错误",
-			})
-			return
-		}
 		c.JSON(http.StatusOK, gin.H{
 			"code": "200",
 		})
@@ -375,34 +366,4 @@ func (h *UserHandler) LoginSMSCode(c *gin.Context) {
 	default:
 		c.JSON(http.StatusOK, Result{Code: 501, Msg: "系统错误"})
 	}
-}
-
-func (h *UserHandler) SetJWTToken(c *gin.Context, uid int64) {
-	uc := UserClaims{
-		Uid:       uid,
-		UserAgent: c.GetHeader("User-Agent"),
-		RegisteredClaims: jwt.RegisteredClaims{
-			//设置15分钟过期
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 15)),
-		},
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, uc)
-	tokenStr, err := token.SignedString(JWTKey)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code": "500",
-			"msg":  "系统错误",
-		})
-		return
-	}
-	c.Header("x-jwt-token", tokenStr)
-
-}
-
-var JWTKey = []byte("ppSik8fZfCugefcqWNeh54adKgtN1Fmp")
-
-type UserClaims struct {
-	jwt.RegisteredClaims
-	Uid       int64
-	UserAgent string
 }
