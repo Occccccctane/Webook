@@ -19,6 +19,7 @@ type UserService interface {
 	Login(context context.Context, email, password string) (Domain.User, error)
 	Edit(ctx context.Context, newPassword string, u Domain.User) error
 	FindOrCreate(c *gin.Context, phone string) (Domain.User, error)
+	FindById(ctx *gin.Context, id int64) (Domain.User, error)
 }
 
 type userService struct {
@@ -29,6 +30,13 @@ func NewUserService(repo Repository.UserRepository) UserService {
 	return &userService{
 		repo: repo,
 	}
+}
+func (svc *userService) FindById(ctx *gin.Context, uid int64) (Domain.User, error) {
+	user, err := svc.repo.FindByID(ctx, uid)
+	if err != nil {
+		return Domain.User{}, err
+	}
+	return user, nil
 }
 
 func (svc *userService) Signup(ctx context.Context, u Domain.User) error {

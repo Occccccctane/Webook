@@ -9,6 +9,7 @@ import (
 	"GinStart/Repository/Dao"
 	"GinStart/Service"
 	Handler "GinStart/Web"
+	ijwt "GinStart/Web/Jwt"
 	"github.com/gin-gonic/gin"
 	"github.com/google/wire"
 )
@@ -31,6 +32,7 @@ func InitWireServer() *gin.Engine {
 		Ioc.InitWechatService,
 		//Web管理
 		Handler.NewUserHandler,
+		ijwt.NewRedisJWTHandler,
 		Handler.NewOAuth2WechatHandler,
 		//引擎，中间件
 		Ioc.InitMiddleWare,

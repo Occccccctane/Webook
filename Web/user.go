@@ -3,8 +3,10 @@ package Handler
 import (
 	"GinStart/Domain"
 	"GinStart/Service"
+	ijwt "GinStart/Web/Jwt"
 	regexp "github.com/dlclark/regexp2"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"net/http"
 )
 
@@ -22,8 +24,10 @@ func (h *UserHandler) RegisterRoute(server *gin.Engine) {
 	user := server.Group("/users")
 	user.POST("/signup", h.Signup)
 	user.POST("/login", h.Login)
+	user.POST("logout", h.Logout)
 	user.POST("/edit", h.Edit)
 	user.GET("/profile", h.Profile)
+	user.GET("/refresh_token", h.RefreshToken)
 
 	//	验证码相关
 	user.POST("/login_sms/code/send", h.LoginSMSCode)
@@ -31,7 +35,7 @@ func (h *UserHandler) RegisterRoute(server *gin.Engine) {
 }
 
 type UserHandler struct {
-	JwtHandler
+	ijwt.Handler
 	emailRexExp    *regexp.Regexp
 	passwordRexExp *regexp.Regexp
 	phoneRexExp    *regexp.Regexp
@@ -40,13 +44,15 @@ type UserHandler struct {
 }
 
 // NewUserHandler 正则预加载
-func NewUserHandler(svc Service.UserService, codeSvc Service.CodeService) *UserHandler {
+func NewUserHandler(svc Service.UserService, codeSvc Service.CodeService,
+	hdl ijwt.Handler) *UserHandler {
 	return &UserHandler{
 		emailRexExp:    regexp.MustCompile(emailRegex, regexp.None),
 		passwordRexExp: regexp.MustCompile(passwordRegex, regexp.None),
 		phoneRexExp:    regexp.MustCompile(phoneRegex, regexp.None),
 		svc:            svc,
 		codeSvc:        codeSvc,
+		Handler:        hdl,
 	}
 }
 
@@ -133,22 +139,22 @@ func (h *UserHandler) Signup(c *gin.Context) {
 
 }
 
-func (h *UserHandler) Login(c *gin.Context) {
+func (h *UserHandler) Login(ctx *gin.Context) {
 	type logINReq struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
 
 	var req logINReq
-	err1 := c.Bind(&req)
+	err1 := ctx.Bind(&req)
 	if err1 != nil {
 		return
 	}
 
-	u, err2 := h.svc.Login(c, req.Email, req.Password)
+	u, err2 := h.svc.Login(ctx, req.Email, req.Password)
 	switch err2 {
 	case nil:
-		//sess := sessions.Default(c)
+		//sess := sessions.Default(ctx)
 		//sess.Set("UserId", u.Id)
 		//sess.Options(sessions.Options{
 		//	MaxAge:   900, //15分钟
@@ -156,7 +162,7 @@ func (h *UserHandler) Login(c *gin.Context) {
 		//})
 		//err := sess.Save()
 		//if err != nil {
-		//	c.JSON(http.StatusInternalServerError, gin.H{
+		//	ctx.JSON(http.StatusInternalServerError, gin.H{
 		//		"code": "500",
 		//		"msg":  "系统错误",
 		//	})
@@ -164,17 +170,17 @@ func (h *UserHandler) Login(c *gin.Context) {
 		//}
 
 		//换成JWT处理
-		h.SetJWTToken(c, u.Id)
-		c.JSON(http.StatusOK, gin.H{
+		h.SetLoginToken(ctx, u.Id)
+		ctx.JSON(http.StatusOK, gin.H{
 			"code": "200",
 		})
 	case Service.ErrInvalidUserOrPassword:
-		c.JSON(http.StatusBadRequest, gin.H{
+		ctx.JSON(http.StatusBadRequest, gin.H{
 			"code": "400",
 			"msg":  "账号或密码错误",
 		})
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{
+		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"code": "500",
 			"msg":  "系统错误",
 		})
@@ -257,89 +263,71 @@ func (h *UserHandler) Edit(c *gin.Context) {
 
 func (h *UserHandler) Profile(c *gin.Context) {
 	//从上下文取出，断言为UserClaims类型
-	//us:=c.MustGet("user").(UserClaims)
-
-	type profileReq struct {
-		Email    string
-		Password string
+	us, ok := c.Get("user")
+	if !ok {
+		c.AbortWithStatus(http.StatusUnauthorized)
+		return
 	}
+	us1, _ := us.(ijwt.UserClaims)
 
-	var req profileReq
-	req.Email = c.Request.Header.Get("email")
-	req.Password = c.Request.Header.Get("password")
-
-	u, err2 := h.svc.Login(c, req.Email, req.Password)
-	switch err2 {
-	case nil:
-
-		c.JSON(http.StatusOK, gin.H{
-			"code":     "200",
-			"Id":       u.Id,
-			"Email":    u.Email,
-			"Nickname": u.Nickname,
-			"Birthday": u.Birthday,
-			"Info":     u.Info,
-		})
-	case Service.ErrInvalidUserOrPassword:
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code": "400",
-			"msg":  "账号或密码错误",
-		})
-	default:
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code": "500",
-			"msg":  "系统错误",
-		})
-	}
+	u, _ := h.svc.FindById(c, us1.Uid)
+	c.JSON(http.StatusOK, gin.H{
+		"code":     "200",
+		"Id":       u.Id,
+		"Email":    u.Email,
+		"Nickname": u.Nickname,
+		"Birthday": u.Birthday,
+		"Info":     u.Info,
+	})
 }
 
-func (h *UserHandler) LoginSMS(c *gin.Context) {
+func (h *UserHandler) LoginSMS(ctx *gin.Context) {
 	type req struct {
 		Phone string `json:"phone"`
 		Code  string `json:"code"`
 	}
 	var Req req
-	err := c.Bind(&Req)
+	err := ctx.Bind(&Req)
 	if err != nil {
-		c.JSON(http.StatusOK, Result{
+		ctx.JSON(http.StatusOK, Result{
 			Code: 500,
 			Msg:  "请求失败",
 		})
 		return
 	}
-	ok, err1 := h.codeSvc.Verify(c, bizLogin, Req.Phone, Req.Code)
+	ok, err1 := h.codeSvc.Verify(ctx, bizLogin, Req.Phone, Req.Code)
 	if err1 != nil {
-		c.JSON(http.StatusOK, Result{
+		ctx.JSON(http.StatusOK, Result{
 			Code: 500,
 			Msg:  "系统异常",
 		})
 	}
 	if !ok {
-		c.JSON(http.StatusOK, Result{Code: 400, Msg: "验证码不正确"})
+		ctx.JSON(http.StatusOK, Result{Code: 400, Msg: "验证码不正确"})
 		return
 	}
-	u, err2 := h.svc.FindOrCreate(c, Req.Phone)
+	u, err2 := h.svc.FindOrCreate(ctx, Req.Phone)
 	if err2 != nil {
-		c.JSON(http.StatusOK, Result{
+		ctx.JSON(http.StatusOK, Result{
 			Code: 500,
 			Msg:  "查找创建失败",
 		})
 		return
 	}
-	h.SetJWTToken(c, u.Id)
-	c.JSON(http.StatusOK, gin.H{
+	h.SetLoginToken(ctx, u.Id)
+	ctx.JSON(http.StatusOK, gin.H{
 		"code": "200",
 	})
 }
 
-func (h *UserHandler) LoginSMSCode(c *gin.Context) {
+func (h *UserHandler) LoginSMSCode(ctx *gin.Context) {
 	type req struct {
 		Phone string `json:"phone"`
 	}
 	var Req req
-	err := c.Bind(&Req)
+	err := ctx.Bind(&Req)
 	if err != nil {
-		c.JSON(http.StatusOK, Result{
+		ctx.JSON(http.StatusOK, Result{
 			Code: 500,
 			Msg:  "请求失败",
 		})
@@ -347,23 +335,68 @@ func (h *UserHandler) LoginSMSCode(c *gin.Context) {
 	}
 	isPhoneTrue, err := h.phoneRexExp.MatchString(Req.Phone)
 	if err != nil {
-		c.JSON(http.StatusOK, Result{Code: 501, Msg: "系统错误"})
+		ctx.JSON(http.StatusOK, Result{Code: 501, Msg: "系统错误"})
 		return
 	}
 	if !isPhoneTrue {
-		c.JSON(http.StatusOK, Result{Code: 400, Msg: "电话格式错误"})
+		ctx.JSON(http.StatusOK, Result{Code: 400, Msg: "电话格式错误"})
 		return
 	}
 
-	err1 := h.codeSvc.Send(c, bizLogin, Req.Phone)
+	err1 := h.codeSvc.Send(ctx, bizLogin, Req.Phone)
 	switch err1 {
 	case nil:
-		c.JSON(http.StatusOK, Result{
+		ctx.JSON(http.StatusOK, Result{
 			Msg: "发送成功",
 		})
 	case Service.ErrCodeSendTooMany:
-		c.JSON(http.StatusOK, Result{Code: 400, Msg: "短信发送太频繁"})
+		ctx.JSON(http.StatusOK, Result{Code: 400, Msg: "短信发送太频繁"})
 	default:
-		c.JSON(http.StatusOK, Result{Code: 501, Msg: "系统错误"})
+		ctx.JSON(http.StatusOK, Result{Code: 501, Msg: "系统错误"})
 	}
+}
+
+func (h *UserHandler) RefreshToken(ctx *gin.Context) {
+	tokenStr := h.ExtractToken(ctx)
+	var rc ijwt.RefreshClaims
+	token, err := jwt.ParseWithClaims(tokenStr, &rc, func(token *jwt.Token) (interface{}, error) {
+		return ijwt.RcJwtKey, nil
+	})
+	//解析失败，401,未授权
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	// jwt没承诺非法就返回错误，加入校验保底
+	if token == nil || !token.Valid {
+		ctx.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	//校验ssid
+	err = h.CheckSession(ctx, rc.Ssid)
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+
+	h.SetJWTToken(ctx, rc.Uid, rc.Ssid)
+	ctx.JSON(http.StatusOK, gin.H{
+		"msg":  "OK",
+		"code": "200",
+	})
+}
+
+func (h *UserHandler) Logout(ctx *gin.Context) {
+	err := h.ClearToken(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 500,
+			Msg:  "系统错误",
+		})
+		return
+	}
+	ctx.JSON(http.StatusOK, Result{
+		Code: 200,
+		Msg:  "已登出",
+	})
 }

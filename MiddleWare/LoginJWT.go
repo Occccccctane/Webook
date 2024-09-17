@@ -1,18 +1,21 @@
 package MiddleWare
 
 import (
-	Handler "GinStart/Web"
-	"fmt"
+	ijwt "GinStart/Web/Jwt"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"net/http"
-	"strings"
-	"time"
 )
 
 type LoginJWTBuilder struct {
+	ijwt.Handler
 }
 
+func NewLoginJWTBuilder(hdl ijwt.Handler) *LoginJWTBuilder {
+	return &LoginJWTBuilder{
+		Handler: hdl,
+	}
+}
 func (b *LoginJWTBuilder) CheckLogin() gin.HandlerFunc {
 	return func(context *gin.Context) {
 		path := context.Request.URL.Path
@@ -26,24 +29,11 @@ func (b *LoginJWTBuilder) CheckLogin() gin.HandlerFunc {
 		}
 
 		//约定token在Authorization的Bearer一起请求
-		authCode := context.GetHeader("Authorization")
-		if authCode == "" {
-			//没登录，没有token
-			context.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
+		tokenStr := b.ExtractToken(context)
 
-		segs := strings.Split(authCode, " ")
-		if len(segs) != 2 {
-			//token是乱传的
-			context.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
-
-		tokenStr := segs[1]
-		var uc Handler.UserClaims
+		var uc ijwt.UserClaims
 		token, err := jwt.ParseWithClaims(tokenStr, &uc, func(token *jwt.Token) (interface{}, error) {
-			return Handler.JWTKey, nil
+			return ijwt.JKey, nil
 		})
 
 		//token不对是伪造的 || token没解析出来 || token是非法的或是过期的
@@ -51,20 +41,24 @@ func (b *LoginJWTBuilder) CheckLogin() gin.HandlerFunc {
 			context.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
-		//if uc.UserAgent != context.GetHeader("User-Agent") {
+		//校验完token后再访问redis可降低一些无效的访问场景
+		err = b.CheckSession(context, uc.Ssid)
+		if err != nil {
+			return
+		}
+		//严格做法
+		if err != nil {
+			// token无效或是redis出问题
+			context.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+		//可以兼容redis出现问题，redis出现问题可以继续访问
+		//需要做好监控有没有 error
+		//if cnt > 0 {
+		// token无效
 		//	context.AbortWithStatus(http.StatusUnauthorized)
 		//	return
 		//}
-		expireTime := uc.ExpiresAt
-		//如果剩余时间少于50秒，刷新
-		if expireTime.Sub(time.Now()) < time.Second*50 {
-			uc.ExpiresAt = jwt.NewNumericDate(time.Now().Add(time.Minute * 15))
-			tokenStr, err := token.SignedString(Handler.JWTKey)
-			context.Header("x-jwt-token", tokenStr)
-			if err != nil {
-				fmt.Println(err)
-			}
-		}
 		context.Set("user", uc) //将其放入上下文中
 	}
 }

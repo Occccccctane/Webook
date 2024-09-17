@@ -13,6 +13,7 @@ import (
 	"GinStart/Repository/Dao"
 	"GinStart/Service"
 	"GinStart/Web"
+	"GinStart/Web/Jwt"
 	"github.com/gin-gonic/gin"
 )
 
@@ -20,7 +21,8 @@ import (
 
 func InitWireServer() *gin.Engine {
 	cmdable := Ioc.InitRedis()
-	v := Ioc.InitMiddleWare(cmdable)
+	handler := Jwt.NewRedisJWTHandler(cmdable)
+	v := Ioc.InitMiddleWare(cmdable, handler)
 	db := Ioc.InitDB()
 	userDao := Dao.NewUserDao(db)
 	userCache := Cache.NewUserCache(cmdable)
@@ -30,7 +32,7 @@ func InitWireServer() *gin.Engine {
 	codeRepository := Repository.NewCodeRepository(codeCache)
 	service := Ioc.InitSMSService()
 	codeService := Service.NewCodeService(codeRepository, service)
-	userHandler := Handler.NewUserHandler(userService, codeService)
+	userHandler := Handler.NewUserHandler(userService, codeService, handler)
 	wechatService := Ioc.InitWechatService()
 	oAuth2WechatHandler := Handler.NewOAuth2WechatHandler(wechatService)
 	engine := Ioc.InitWebServer(v, userHandler, oAuth2WechatHandler)
