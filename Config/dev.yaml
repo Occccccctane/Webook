@@ -1,0 +1,8 @@
+test:
+    name: "test01"
+
+redis:
+    addr: "localhost:6379"
+
+db:
+    dsn: "root:aaa@tcp(localhost:3306)/ginstart"
