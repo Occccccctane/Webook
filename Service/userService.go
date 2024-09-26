@@ -3,6 +3,7 @@ package Service
 import (
 	"GinStart/Domain"
 	"GinStart/Repository"
+	"GinStart/pkg/logger"
 	"context"
 	"errors"
 	"github.com/gin-gonic/gin"
@@ -23,12 +24,14 @@ type UserService interface {
 }
 
 type userService struct {
-	repo Repository.UserRepository
+	repo   Repository.UserRepository
+	logger logger.Logger
 }
 
-func NewUserService(repo Repository.UserRepository) UserService {
+func NewUserService(repo Repository.UserRepository, l logger.Logger) UserService {
 	return &userService{
-		repo: repo,
+		repo:   repo,
+		logger: l,
 	}
 }
 func (svc *userService) FindById(ctx *gin.Context, uid int64) (Domain.User, error) {
@@ -103,6 +106,8 @@ func (svc *userService) FindOrCreate(c *gin.Context, phone string) (Domain.User,
 	if err != Repository.ErrUserNotFound {
 		return u, err
 	}
+	//找不到意味着是一个新用户
+	//svc.logger.Info("新用户", )
 	err = svc.repo.Create(c, Domain.User{
 		Phone: phone,
 	})

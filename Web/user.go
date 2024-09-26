@@ -7,6 +7,7 @@ import (
 	regexp "github.com/dlclark/regexp2"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"go.uber.org/zap"
 	"net/http"
 )
 
@@ -295,12 +296,18 @@ func (h *UserHandler) LoginSMS(ctx *gin.Context) {
 		})
 		return
 	}
-	ok, err1 := h.codeSvc.Verify(ctx, bizLogin, Req.Phone, Req.Code)
-	if err1 != nil {
+	ok, err := h.codeSvc.Verify(ctx, bizLogin, Req.Phone, Req.Code)
+	if err != nil {
 		ctx.JSON(http.StatusOK, Result{
 			Code: 500,
 			Msg:  "系统异常",
 		})
+		zap.L().Error("验证码校验失败",
+			// 开发环境能作为debug用
+			// 生产环境不能暴露手机号
+			zap.String("phone", Req.Phone),
+			zap.Error(err))
+		return
 	}
 	if !ok {
 		ctx.JSON(http.StatusOK, Result{Code: 400, Msg: "验证码不正确"})
@@ -350,6 +357,9 @@ func (h *UserHandler) LoginSMSCode(ctx *gin.Context) {
 			Msg: "发送成功",
 		})
 	case Service.ErrCodeSendTooMany:
+		//少数可以接受
+		//频繁触发是有人异常触发
+		zap.L().Warn("短信发送太频繁", zap.String("phone", Req.Phone))
 		ctx.JSON(http.StatusOK, Result{Code: 400, Msg: "短信发送太频繁"})
 	default:
 		ctx.JSON(http.StatusOK, Result{Code: 501, Msg: "系统错误"})

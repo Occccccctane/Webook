@@ -18,6 +18,7 @@ func InitWireServer() *gin.Engine {
 	wire.Build(
 		//第三方依赖
 		Ioc.InitDB, Ioc.InitRedis,
+		Ioc.InitLogger,
 		//数据库交互层
 		Dao.NewUserDao,
 		//缓存交互层
