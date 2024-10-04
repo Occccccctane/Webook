@@ -5,7 +5,9 @@ import (
 	Handler "GinStart/Web"
 	ijwt "GinStart/Web/Jwt"
 	"GinStart/pkg/limiter"
+	"GinStart/pkg/logger"
 	"GinStart/pkg/middleware/ratelimit"
+	"context"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"time"
@@ -19,12 +21,18 @@ func InitWebServer(middleware []gin.HandlerFunc, userHdl *Handler.UserHandler, w
 	return server
 }
 
-func InitMiddleWare(client redis.Cmdable, hdl ijwt.Handler) []gin.HandlerFunc {
+func InitMiddleWare(client redis.Cmdable, hdl ijwt.Handler, l logger.Logger) []gin.HandlerFunc {
 	return []gin.HandlerFunc{
 		//跨域
 		(&MiddleWare.CrossDomain{}).CrossDomainHandler(),
 		//限流
 		ratelimit.NewBuilder(limiter.NewRedisSlideWindowsLimiter(client, time.Second, 1000)).Build(),
+		MiddleWare.NewLogMiddlewareBuilder(func(ctx context.Context, al MiddleWare.AccessLog) {
+			l.Debug("access log:", logger.Field{
+				Key:   "req",
+				Value: al,
+			})
+		}).AllowRespBody().AllowReqBody().Build(),
 		//登录校验
 		MiddleWare.NewLoginJWTBuilder(hdl).CheckLogin(),
 	}
