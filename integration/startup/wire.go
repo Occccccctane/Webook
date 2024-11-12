@@ -9,6 +9,7 @@ import (
 	"GinStart/Repository/Dao"
 	"GinStart/Service"
 	Handler "GinStart/Web"
+	ijwt "GinStart/Web/Jwt"
 	"github.com/gin-gonic/gin"
 	"github.com/google/wire"
 )
@@ -16,7 +17,8 @@ import (
 func InitWireServer() *gin.Engine {
 	wire.Build(
 		//第三方依赖
-		Ioc.InitDB, InitRedis,
+		InitDB, Ioc.InitRedis,
+		Ioc.InitLogger,
 		//数据库交互层
 		Dao.NewUserDao,
 		//缓存交互层
@@ -28,8 +30,11 @@ func InitWireServer() *gin.Engine {
 		Ioc.InitSMSService,
 		Service.NewCodeService,
 		Service.NewUserService,
+		Ioc.InitWechatService,
 		//Web管理
 		Handler.NewUserHandler,
+		ijwt.NewRedisJWTHandler,
+		Handler.NewOAuth2WechatHandler,
 		//引擎，中间件
 		Ioc.InitMiddleWare,
 		Ioc.InitWebServer,
