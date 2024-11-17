@@ -20,6 +20,9 @@ type ArticleHandlerSuite struct {
 	server *gin.Engine
 }
 
+func TestArticleHandler(t *testing.T) {
+	suite.Run(t, &ArticleHandlerSuite{})
+}
 func (s *ArticleHandlerSuite) SetupSuite() {
 	s.db = startup.InitDB()
 	s.server = startup.InitWireServer()
@@ -27,6 +30,7 @@ func (s *ArticleHandlerSuite) SetupSuite() {
 func (s *ArticleHandlerSuite) TearDownTest() {
 	s.db.Exec("truncate table `articles`")
 }
+
 func (s *ArticleHandlerSuite) TestEdit() {
 	t := s.T()
 	testCase := []struct {
@@ -90,10 +94,6 @@ func (s *ArticleHandlerSuite) TestEdit() {
 			assert.Equal(t, tc.ExpectedReq, red)
 		})
 	}
-}
-
-func TestArticleHandler(t *testing.T) {
-	suite.Run(t, &ArticleHandlerSuite{})
 }
 
 type Result[T any] struct {
