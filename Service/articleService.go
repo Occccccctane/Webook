@@ -2,6 +2,7 @@ package Service
 
 import (
 	"GinStart/Domain"
+	"GinStart/Repository"
 	"context"
 )
 
@@ -10,9 +11,16 @@ type ArticleService interface {
 }
 
 type ArticleServiceImpl struct {
+	repo Repository.ArticleRepository
+}
+
+func NewArticleServiceImpl(repo Repository.ArticleRepositoryImpl) ArticleService {
+	return &ArticleServiceImpl{
+		repo: &repo,
+	}
+
 }
 
 func (a *ArticleServiceImpl) Save(ctx context.Context, art Domain.Article) (int64, error) {
-	//TODO implement me
-	panic("implement me")
+	return a.repo.Create(ctx, art)
 }
