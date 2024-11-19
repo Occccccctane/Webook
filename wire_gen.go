@@ -15,6 +15,7 @@ import (
 	"GinStart/Web"
 	"GinStart/Web/Jwt"
 	"github.com/gin-gonic/gin"
+	"github.com/google/wire"
 )
 
 import (
@@ -38,8 +39,16 @@ func InitWireServer() *gin.Engine {
 	service := Ioc.InitSMSService()
 	codeService := Service.NewCodeService(codeRepository, service)
 	userHandler := Handler.NewUserHandler(userService, codeService, handler)
+	articleDao := Dao.NewArticleGormDao(db)
+	articleRepository := Repository.NewArticleRepositoryImpl(articleDao)
+	articleService := Service.NewArticleServiceImpl(articleRepository)
+	articleHandler := Handler.NewArticleHandler(articleService, logger)
 	wechatService := Ioc.InitWechatService()
 	oAuth2WechatHandler := Handler.NewOAuth2WechatHandler(wechatService)
-	engine := Ioc.InitWebServer(v, userHandler, oAuth2WechatHandler)
+	engine := Ioc.InitWebServer(v, userHandler, articleHandler, oAuth2WechatHandler)
 	return engine
 }
+
+// wire.go:
+
+var thirdPartySet = wire.NewSet(Ioc.InitDB, Ioc.InitRedis, Ioc.InitLogger)

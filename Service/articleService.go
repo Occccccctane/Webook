@@ -14,9 +14,9 @@ type ArticleServiceImpl struct {
 	repo Repository.ArticleRepository
 }
 
-func NewArticleServiceImpl(repo Repository.ArticleRepositoryImpl) ArticleService {
+func NewArticleServiceImpl(repo Repository.ArticleRepository) ArticleService {
 	return &ArticleServiceImpl{
-		repo: &repo,
+		repo: repo,
 	}
 
 }

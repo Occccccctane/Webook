@@ -13,9 +13,13 @@ import (
 	"time"
 )
 
-func InitWebServer(middleware []gin.HandlerFunc, userHdl *Handler.UserHandler, wechatHdl *Handler.OAuth2WechatHandler) *gin.Engine {
+func InitWebServer(middleware []gin.HandlerFunc,
+	userHdl *Handler.UserHandler,
+	articleHdl *Handler.ArticleHandler,
+	wechatHdl *Handler.OAuth2WechatHandler) *gin.Engine {
 	server := gin.Default()
 	server.Use(middleware...)
+	articleHdl.RegisterRoute(server)
 	userHdl.RegisterRoute(server)
 	wechatHdl.RegisterRout(server)
 	return server

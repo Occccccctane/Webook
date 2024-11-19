@@ -2,6 +2,7 @@ package integration
 
 import (
 	"GinStart/Repository/Dao"
+	ijwt "GinStart/Web/Jwt"
 	"GinStart/integration/startup"
 	"bytes"
 	"encoding/json"
@@ -25,7 +26,15 @@ func TestArticleHandler(t *testing.T) {
 }
 func (s *ArticleHandlerSuite) SetupSuite() {
 	s.db = startup.InitDB()
-	s.server = startup.InitWireServer()
+	server := gin.Default()
+	hdl := startup.InitArticleHandler()
+	server.Use(func(ctx *gin.Context) {
+		ctx.Set("user", ijwt.UserClaims{
+			Uid: 123,
+		})
+	})
+	hdl.RegisterRoute(server)
+	s.server = server
 }
 func (s *ArticleHandlerSuite) TearDownTest() {
 	s.db.Exec("truncate table `articles`")
@@ -64,7 +73,7 @@ func (s *ArticleHandlerSuite) TestEdit() {
 			ExpectedCode: http.StatusOK,
 			ExpectedReq: Result[int64]{
 				Code: 200,
-				Msg:  "success",
+				Msg:  "保存成功",
 				Data: 1,
 			},
 		},
