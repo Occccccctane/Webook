@@ -77,6 +77,91 @@ func (s *ArticleHandlerSuite) TestEdit() {
 				Data: 1,
 			},
 		},
+		{
+			name: "修改帖子",
+			before: func(t *testing.T) {
+				err := s.db.Create(&Dao.Article{
+					Id:       2,
+					AuthorId: 123,
+					Title:    "测试标题",
+					Content:  "测试内容",
+					Ctime:    456,
+					Utime:    789,
+					Status:   1,
+				}).Error
+				assert.NoError(t, err)
+			},
+			after: func(t *testing.T) {
+				//	验证保存成功
+				var art Dao.Article
+				err := s.db.Where("id = ?", 2).First(&art).Error
+				assert.NoError(t, err)
+				assert.True(t, art.Utime > 789)
+				art.Utime = 0
+				assert.Equal(t, Dao.Article{
+					Id:       2,
+					Title:    "新的标题",
+					Content:  "新的内容",
+					AuthorId: 123,
+					Status:   1,
+					Ctime:    456,
+				}, art)
+				s.TearDownTest()
+			},
+			art: Article{
+				Id:      2,
+				Title:   "新的标题",
+				Content: "新的内容",
+			},
+			ExpectedCode: http.StatusOK,
+			ExpectedReq: Result[int64]{
+				Code: 200,
+				Msg:  "保存成功",
+				Data: 2,
+			},
+		},
+		{
+			name: "修改别人帖子",
+			before: func(t *testing.T) {
+				err := s.db.Create(&Dao.Article{
+					Id:       3,
+					AuthorId: 234,
+					Title:    "测试标题",
+					Content:  "测试内容",
+					Ctime:    456,
+					Utime:    789,
+					Status:   1,
+				}).Error
+				assert.NoError(t, err)
+			},
+			after: func(t *testing.T) {
+				//	验证数据不变
+				var art Dao.Article
+				err := s.db.Where("id = ?", 3).First(&art).Error
+				assert.NoError(t, err)
+				assert.Equal(t, Dao.Article{
+					Id:       3,
+					Title:    "测试标题",
+					Content:  "测试内容",
+					AuthorId: 234,
+					Status:   1,
+					Ctime:    456,
+					Utime:    789,
+				}, art)
+				s.TearDownTest()
+			},
+			art: Article{
+				Id:      3,
+				Title:   "新的标题",
+				Content: "新的内容",
+			},
+			ExpectedCode: http.StatusInternalServerError,
+			ExpectedReq: Result[int64]{
+				Code: 500,
+				Msg:  "系统错误",
+				Data: 0,
+			},
+		},
 	}
 	for _, tc := range testCase {
 		t.Run(tc.name, func(t *testing.T) {
@@ -112,6 +197,7 @@ type Result[T any] struct {
 }
 
 type Article struct {
+	Id      int64  `json:"id"`
 	Title   string `json:"title"`
 	Content string `json:"content"`
 }

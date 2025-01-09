@@ -124,7 +124,7 @@ func TestUserHandler_Signup(t *testing.T) {
 			defer ctrl.Finish()
 			//创建控制器
 			userSvc, codeSvc := tc.mock(ctrl)
-			hdl := NewUserHandler(userSvc, codeSvc)
+			hdl := NewUserHandler(userSvc, codeSvc, nil)
 
 			//准备服务器,注册路由
 			server := gin.Default()
@@ -168,7 +168,7 @@ func TestEmailPatten(t *testing.T) {
 			match: true,
 		},
 	}
-	h := NewUserHandler(nil, nil)
+	h := NewUserHandler(nil, nil, nil)
 	for _, tc := range TestCase {
 		t.Run(tc.name, func(t *testing.T) {
 			match, err := h.emailRexExp.MatchString(tc.email)
