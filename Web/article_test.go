@@ -8,6 +8,7 @@ import (
 	"GinStart/pkg/logger"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
@@ -74,6 +75,44 @@ func TestArticleHandler_Publish(t *testing.T) {
 				Data: float64(12),
 			},
 		},
+		{
+			name: "发表失败",
+			mock: func(ctrl *gomock.Controller) Service.ArticleService {
+				svc := svcmock.NewMockArticleService(ctrl)
+				svc.EXPECT().Publish(gomock.Any(), Domain.Article{
+					Id:      12,
+					Content: "测试内容",
+					Title:   "测试标题",
+					Author: Domain.Author{
+						Id: 123,
+					},
+				}).Return(int64(0), errors.New("mock error"))
+				return svc
+			},
+			reqBody: `{
+				"id": 12,
+				"title": "测试标题",
+				"content": "测试内容"
+			}`,
+			ExpectedCode: http.StatusInternalServerError,
+			ExpectedReq: Result{
+				Code: 500,
+				Msg:  "系统错误",
+			},
+		},
+		{
+			name: "Bind错误",
+			mock: func(ctrl *gomock.Controller) Service.ArticleService {
+				svc := svcmock.NewMockArticleService(ctrl)
+				return svc
+			},
+			reqBody: `{
+				"id": 12,
+				"title": "测试标题",
+				"content": "测试内容"ASDSA
+			}`,
+			ExpectedCode: http.StatusBadRequest,
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -104,12 +143,15 @@ func TestArticleHandler_Publish(t *testing.T) {
 
 			//服务器接收响应
 			server.ServeHTTP(recorder, req)
+			assert.Equal(t, tc.ExpectedCode, recorder.Code)
+			if recorder.Code == http.StatusBadRequest {
+				return
+			}
 
 			//	断言结果
 			var res Result
 			err = json.NewDecoder(recorder.Body).Decode(&res)
 			assert.NoError(t, err)
-			assert.Equal(t, tc.ExpectedCode, recorder.Code)
 			assert.Equal(t, tc.ExpectedReq, res)
 		})
 	}

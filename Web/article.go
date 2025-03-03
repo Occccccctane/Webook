@@ -24,6 +24,7 @@ func (h *ArticleHandler) RegisterRoute(server *gin.Engine) {
 	g := server.Group("/articles")
 	g.POST("/edit", h.Edit)
 	g.POST("/publish", h.Publish)
+	g.POST("/withdraw", h.Withdraw)
 }
 
 func (h *ArticleHandler) Edit(ctx *gin.Context) {
@@ -72,7 +73,7 @@ func (h *ArticleHandler) Publish(ctx *gin.Context) {
 	if err := ctx.Bind(&req); err != nil {
 		return
 	}
-	uc := ctx.MustGet("user").(*Jwt.UserClaims)
+	uc := ctx.MustGet("user").(Jwt.UserClaims)
 	id, err := h.svc.Publish(ctx, Domain.Article{
 		Id:      req.Id,
 		Title:   req.Title,
@@ -97,4 +98,31 @@ func (h *ArticleHandler) Publish(ctx *gin.Context) {
 		Data: id,
 	})
 
+}
+
+func (h *ArticleHandler) Withdraw(ctx *gin.Context) {
+	type Req struct {
+		Id int64 `json:"id"`
+	}
+	var req Req
+	if err := ctx.Bind(&req); err != nil {
+		return
+	}
+	uc := ctx.MustGet("user").(Jwt.UserClaims)
+	err := h.svc.Withdraw(ctx, uc.Uid, req.Id)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, Result{
+			Code: 500,
+			Msg:  "系统错误",
+		})
+		h.l.Error("文章隐藏失败",
+			logger.Int64("uid", uc.Uid),
+			logger.Int64("aid", req.Id),
+			logger.Error(err))
+		return
+	}
+	ctx.JSON(http.StatusOK, Result{
+		Code: 200,
+		Msg:  "保存成功",
+	})
 }

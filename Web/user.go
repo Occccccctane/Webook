@@ -20,6 +20,15 @@ const (
 	bizLogin = "login"
 )
 
+type UserHandler struct {
+	ijwt.Handler
+	emailRexExp    *regexp.Regexp
+	passwordRexExp *regexp.Regexp
+	phoneRexExp    *regexp.Regexp
+	svc            Service.UserService
+	codeSvc        Service.CodeService
+}
+
 func (h *UserHandler) RegisterRoute(server *gin.Engine) {
 
 	user := server.Group("/users")
@@ -33,15 +42,6 @@ func (h *UserHandler) RegisterRoute(server *gin.Engine) {
 	//	验证码相关
 	user.POST("/login_sms/code/send", h.LoginSMSCode)
 	user.POST("/login_sms", h.LoginSMS)
-}
-
-type UserHandler struct {
-	ijwt.Handler
-	emailRexExp    *regexp.Regexp
-	passwordRexExp *regexp.Regexp
-	phoneRexExp    *regexp.Regexp
-	svc            Service.UserService
-	codeSvc        Service.CodeService
 }
 
 // NewUserHandler 正则预加载

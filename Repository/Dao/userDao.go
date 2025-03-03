@@ -88,7 +88,7 @@ func (dao *GormUserDao) FindByPhone(ctx context.Context, phone string) (User, er
 }
 
 type User struct {
-	Id       int64          `gorm:"primaryKey,autoIncrement"`
+	Id       int64          `gorm:"primaryKey,autoFIncrement"`
 	Email    sql.NullString `gorm:"unique"`
 	Password string
 	Nickname string
