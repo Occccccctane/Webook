@@ -15,7 +15,7 @@ import (
 )
 
 var thirdPartySet = wire.NewSet(InitDB, InitRedis,
-	InitLogger)
+	InitLogger, InitMongoDB, InitSnowflake)
 
 func InitWireServer() *gin.Engine {
 	wire.Build(
@@ -23,7 +23,7 @@ func InitWireServer() *gin.Engine {
 		thirdPartySet,
 		//数据库交互层
 		Dao.NewUserDao,
-		Dao.NewArticleGormDao,
+		Dao.NewMongoDBArticleDao,
 		//缓存交互层
 		Cache.NewUserCache, Cache.NewCodeCache,
 		//存储层
@@ -48,10 +48,9 @@ func InitWireServer() *gin.Engine {
 	return gin.Default()
 }
 
-func InitArticleHandler() *Handler.ArticleHandler {
+func InitArticleHandler(dao Dao.ArticleDao) *Handler.ArticleHandler {
 	wire.Build(
 		thirdPartySet,
-		Dao.NewArticleGormDao,
 		Repository.NewArticleRepositoryImpl,
 		Service.NewArticleServiceImpl,
 		Handler.NewArticleHandler,

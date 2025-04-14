@@ -27,7 +27,7 @@ func TestArticleHandler(t *testing.T) {
 func (s *ArticleHandlerSuite) SetupSuite() {
 	s.db = startup.InitDB()
 	server := gin.Default()
-	hdl := startup.InitArticleHandler()
+	hdl := startup.InitArticleHandler(Dao.NewGormArticleDao(s.db))
 	server.Use(func(ctx *gin.Context) {
 		ctx.Set("user", ijwt.UserClaims{
 			Uid: 123,

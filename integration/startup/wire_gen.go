@@ -35,7 +35,9 @@ func InitWireServer() *gin.Engine {
 	service := Ioc.InitSMSService()
 	codeService := Service.NewCodeService(codeRepository, service)
 	userHandler := Handler.NewUserHandler(userService, codeService, handler)
-	articleDao := Dao.NewArticleGormDao(db)
+	database := InitMongoDB()
+	node := InitSnowflake()
+	articleDao := Dao.NewMongoDBArticleDao(database, node)
 	articleRepository := Repository.NewArticleRepositoryImpl(articleDao)
 	articleService := Service.NewArticleServiceImpl(articleRepository)
 	articleHandler := Handler.NewArticleHandler(articleService, logger)
@@ -45,10 +47,8 @@ func InitWireServer() *gin.Engine {
 	return engine
 }
 
-func InitArticleHandler() *Handler.ArticleHandler {
-	db := InitDB()
-	articleDao := Dao.NewArticleGormDao(db)
-	articleRepository := Repository.NewArticleRepositoryImpl(articleDao)
+func InitArticleHandler(dao Dao.ArticleDao) *Handler.ArticleHandler {
+	articleRepository := Repository.NewArticleRepositoryImpl(dao)
 	articleService := Service.NewArticleServiceImpl(articleRepository)
 	logger := InitLogger()
 	articleHandler := Handler.NewArticleHandler(articleService, logger)
@@ -58,4 +58,4 @@ func InitArticleHandler() *Handler.ArticleHandler {
 // wire.go:
 
 var thirdPartySet = wire.NewSet(InitDB, InitRedis,
-	InitLogger)
+	InitLogger, InitMongoDB, InitSnowflake)

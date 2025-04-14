@@ -23,7 +23,8 @@ func InitWireServer() *gin.Engine {
 		thirdPartySet,
 		//数据库交互层
 		Dao.NewUserDao,
-		Dao.NewArticleGormDao,
+		Dao.NewGormArticleDao,
+		Dao.NewMongoDBArticleDao,
 		//缓存交互层
 		Cache.NewUserCache, Cache.NewCodeCache,
 		//存储层

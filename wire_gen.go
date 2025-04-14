@@ -39,7 +39,7 @@ func InitWireServer() *gin.Engine {
 	service := Ioc.InitSMSService()
 	codeService := Service.NewCodeService(codeRepository, service)
 	userHandler := Handler.NewUserHandler(userService, codeService, handler)
-	articleDao := Dao.NewArticleGormDao(db)
+	articleDao := Dao.NewGormArticleDao(db)
 	articleRepository := Repository.NewArticleRepositoryImpl(articleDao)
 	articleService := Service.NewArticleServiceImpl(articleRepository)
 	articleHandler := Handler.NewArticleHandler(articleService, logger)
