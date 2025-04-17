@@ -6,6 +6,7 @@ import (
 	"github.com/bwmarrin/snowflake"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"time"
 )
 
@@ -56,11 +57,56 @@ func (m *MongoDBArticleDao) Update(ctx context.Context, art Article) error {
 }
 
 func (m *MongoDBArticleDao) Sync(ctx context.Context, art Article) (int64, error) {
-	//TODO implement me
-	panic("implement me")
+	var (
+		id  = art.Id
+		err error
+	)
+	now := time.Now().UnixMilli()
+	// 制作库col
+	if art.Id > 0 {
+		err = m.Update(ctx, art)
+	} else {
+		id, err = m.Insert(ctx, art)
+	}
+	if err != nil {
+		return 0, err
+	}
+	//	发表库liveCol 需要实现Upsert的语义
+	art.Id = id
+	art.Utime = now
+	filter := map[string]interface{}{
+		"author_id": art.AuthorId,
+		"id":        art.Id,
+	}
+	set := bson.M{
+		"$set": PublishedArticle(art),
+		"$setOnInsert": map[string]interface{}{
+			"ctime": now,
+		},
+	}
+	_, err = m.liveCol.UpdateOne(ctx,
+		filter, set,
+		options.UpdateOne().SetUpsert(true))
+	return id, err
 }
 
 func (m *MongoDBArticleDao) SyncStatus(ctx context.Context, uid int64, aid int64, status uint8) error {
-	//TODO implement me
-	panic("implement me")
+	filter := map[string]interface{}{
+		"author_id": uid,
+		"id":        aid,
+	}
+	set := bson.M{
+		"$set": bson.M{
+			"status": status,
+		},
+	}
+	res, err := m.liveCol.UpdateOne(ctx, filter, set)
+	if err != nil {
+		return err
+	}
+	if res.ModifiedCount != 1 {
+		return errors.New("更新数据失败")
+	}
+	_, err = m.liveCol.UpdateOne(ctx, filter, set)
+	return err
 }
